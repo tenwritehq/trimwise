@@ -1,14 +1,17 @@
 # Trimwise
 
-Trimwise creates high-signal excerpts from long documents, search results you have already fetched, logs, and tool output
-before you assemble an LLM prompt. Keep your system prompt, task instructions, and output schema unchanged. 
-Trim each evidence source independently, then add the compact, high-signal excerpts to your prompt.
+Trimwise creates high-signal excerpts from long documents, search results, logs, and tool output
+before you assemble an LLM prompt. You keep your system prompt, task instructions, and output schema unchanged 
+and only use Trimwise to trim each evidence source independently. This allows you to add add the compact, high-signal 
+excerpts to your prompt. 
 
-Instead of simply returning text[:N], Trimwise selects useful passages from across each source while preserving their original order. 
+Instead of simply returning `text[:N]`, Trimwise selects useful passages from across each source while preserving their original order. 
 It can retain complete sections, prioritize content relevant to a question, and reduce repetitive evidence — all within an exact token, word, or character budget.
 
-Trimwise is for compacting evidence, not retrieving it. It does not search, fetch documents, or query an index, database, 
+Trimwise is for meant compacting evidence. It does not search, fetch documents, or query an index, database, 
 or vector store. Your application supplies the text; Trimwise returns a smaller, more useful version for the prompt than naive truncation.
+
+## Features
 
 - 🎯 **Built for prompt assembly:** trim each evidence source independently while leaving your
   system prompt, task instructions, and output schema untouched.
