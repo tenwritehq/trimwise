@@ -723,5 +723,5 @@ Trimwise instead prioritizes predictable budgets, traceable excerpts, and exact 
 ## Project
 
 - Read planned experiments and explicit deferrals in the [roadmap](ROADMAP.md).
-- Report bugs or request features through [GitHub Issues](https://github.com/aakashH242/trimwise/issues).
+- Report bugs or request features through [GitHub Issues](https://github.com/tenwritehq/trimwise/issues).
 - Trimwise is available under the [MIT License](LICENSE).
