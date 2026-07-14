@@ -63,7 +63,7 @@ def segment_text(text: str) -> list[Segment]:
 
     line_offsets = _line_offsets(text)
     parser = MarkdownIt("commonmark").enable("table")
-    front_matter_end = _front_matter_end(text)
+    front_matter_end = _front_matter_end(text, line_offsets)
     mapped_blocks = [(0, front_matter_end, "raw")] if front_matter_end is not None else []
     containers: list[str] = []
     for token in parser.parse(text):
@@ -88,23 +88,22 @@ def segment_text(text: str) -> list[Segment]:
     return _assign_sections(text, complete_spans)
 
 
-def _front_matter_end(text: str) -> int | None:
+def _front_matter_end(text: str, line_offsets: list[int]) -> int | None:
     """Find a leading YAML-style front matter block.
 
     Args:
         text: Original source text.
+        line_offsets: Existing line-start offsets for the source.
 
     Returns:
         Exclusive closing-line offset, or ``None`` when no closed block exists.
     """
-    lines = text.splitlines(keepends=True)
-    if not lines or lines[0].strip() != "---":
+    if len(line_offsets) < 2 or text[: line_offsets[1]].strip() != "---":
         return None
-    offset = len(lines[0])
-    for line in lines[1:]:
-        offset += len(line)
-        if line.strip() in {"---", "..."}:
-            return offset
+    for line_index in range(1, len(line_offsets) - 1):
+        line_end = line_offsets[line_index + 1]
+        if text[line_offsets[line_index] : line_end].strip() in {"---", "..."}:
+            return line_end
     return None
 
 

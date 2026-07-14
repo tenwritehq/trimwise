@@ -38,6 +38,7 @@ _SENTENCE_BOUNDARY_PATTERN = re.compile(
     r"""(?:[.!?](?:["')\]]*)?(?:[^\S\r\n]+|\r?\n|$)|"""
     r"""[\u2026\u3002\uff01\uff1f](?:["')\]]*)?(?:[^\S\r\n]+|\r?\n|(?=\S)|$))"""
 )
+_NON_WHITESPACE_PATTERN = re.compile(r"\S")
 
 
 @dataclass(frozen=True, slots=True)
@@ -701,17 +702,21 @@ def _fill_remaining(
         add_candidate: Candidate acceptance behavior for the active strategy.
     """
     while state.remaining:
-        order = state.context.ranking.ordered_indexes(
+        index = state.context.ranking.next_index(
             state.remaining,
             state.maximum_similarities,
             state.context.mmr_lambda,
         )
-        accepted = False
-        for index in order:
+        if add_candidate(state, index):
+            continue
+        for index in state.context.ranking.ordered_indexes(
+            state.remaining,
+            state.maximum_similarities,
+            state.context.mmr_lambda,
+        ):
             if add_candidate(state, index):
-                accepted = True
                 break
-        if not accepted:
+        else:
             return
 
 
@@ -792,12 +797,13 @@ def _compose(context: _SelectionContext, indexes: set[int]) -> str | None:
     for index, piece in enumerate(pieces):
         if piece.marked is None:
             continue
-        trial = current.copy()
-        trial[index] = piece.marked
-        candidate = "".join(trial)
+        fallback = current[index]
+        current[index] = piece.marked
+        candidate = "".join(current)
         if context.measurer.count(candidate) <= context.limit:
-            current = trial
             output = candidate
+        else:
+            current[index] = fallback
     return output
 
 
@@ -816,20 +822,24 @@ def _output_pieces(
     """
     pieces: list[_OutputPiece] = []
     first = segments[0]
-    leading = context.source[: first.start]
-    if leading:
+    if first.start:
+        leading_has_content = _NON_WHITESPACE_PATTERN.search(context.source, 0, first.start)
         marked = context.marker + _newlines_before(first.text)
         pieces.append(
             _OutputPiece(
-                leading if not leading.strip() else "",
-                marked if leading.strip() else None,
+                "" if leading_has_content else context.source[: first.start],
+                marked if leading_has_content else None,
             )
         )
     pieces.append(_OutputPiece(first.text))
 
     for previous, segment in pairwise(segments):
-        gap = context.source[previous.end : segment.start]
-        if gap.strip():
+        gap_has_content = _NON_WHITESPACE_PATTERN.search(
+            context.source,
+            previous.end,
+            segment.start,
+        )
+        if gap_has_content:
             pieces.append(
                 _OutputPiece(
                     _plain_separator(previous.text, segment.text),
@@ -837,17 +847,17 @@ def _output_pieces(
                 )
             )
         else:
-            pieces.append(_OutputPiece(gap))
+            pieces.append(_OutputPiece(context.source[previous.end : segment.start]))
         pieces.append(_OutputPiece(segment.text))
 
     last = segments[-1]
-    trailing = context.source[last.end :]
-    if trailing:
+    if last.end < len(context.source):
+        trailing_has_content = _NON_WHITESPACE_PATTERN.search(context.source, last.end)
         marked = _newlines_after(last.text) + context.marker
         pieces.append(
             _OutputPiece(
-                trailing if not trailing.strip() else "",
-                marked if trailing.strip() else None,
+                "" if trailing_has_content else context.source[last.end :],
+                marked if trailing_has_content else None,
             )
         )
     return pieces

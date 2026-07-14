@@ -162,7 +162,15 @@ def rank_structural(segments: list[Segment], measurer: Measurer) -> CandidateRan
     """
     vectors = _tfidf_vectors(_terms_for_segments(segments, measurer))
     centroid = _centroid(vectors)
-    primary = [_sparse_cosine(vector, centroid) for vector in vectors]
+    centroid_norm = _sparse_norm(centroid)
+    primary = [
+        _sparse_cosine_with_norm_product(
+            vector,
+            centroid,
+            _sparse_norm(vector) * centroid_norm,
+        )
+        for vector in vectors
+    ]
     return _build_ranking(segments, primary, _sparse_similarity(vectors))
 
 
@@ -263,25 +271,35 @@ def _contextual_ranking_texts(segments: list[Segment]) -> list[str]:
     Returns:
         Candidate-anchored scoring text in source order.
     """
-    texts: list[str] = []
-    for index, segment in enumerate(segments):
-        previous = index - 1 if index and segments[index - 1].section == segment.section else None
-        following = (
-            index + 1
-            if index + 1 < len(segments) and segments[index + 1].section == segment.section
-            else None
-        )
-        context_indexes = dict.fromkeys(
-            candidate_index
-            for candidate_index in (segment.heading_index, previous, index, following)
-            if candidate_index is not None
-        )
-        if len(context_indexes) == 1:
-            texts.append(segment.text)
-            continue
-        window = "\n\n".join(segments[candidate_index].text for candidate_index in context_indexes)
-        texts.append(f"{segment.text}\n\n{window}")
-    return texts
+    return [_contextual_ranking_text(segments, index) for index in range(len(segments))]
+
+
+def _contextual_ranking_text(segments: list[Segment], index: int) -> str:
+    """Build one candidate-anchored scoring passage.
+
+    Args:
+        segments: Ordered source candidates with section relationships.
+        index: Candidate whose ranking context is needed.
+
+    Returns:
+        Candidate text followed by its deduplicated local context.
+    """
+    segment = segments[index]
+    previous = index - 1 if index and segments[index - 1].section == segment.section else None
+    following = (
+        index + 1
+        if index + 1 < len(segments) and segments[index + 1].section == segment.section
+        else None
+    )
+    context_indexes = dict.fromkeys(
+        candidate_index
+        for candidate_index in (segment.heading_index, previous, index, following)
+        if candidate_index is not None
+    )
+    if len(context_indexes) == 1:
+        return segment.text
+    window = "\n\n".join(segments[candidate_index].text for candidate_index in context_indexes)
+    return f"{segment.text}\n\n{window}"
 
 
 def _normalize_ranking_text(text: str) -> str:
@@ -308,8 +326,8 @@ def _terms_for_segments(segments: list[Segment], measurer: Measurer) -> list[lis
         Token identifiers for each candidate.
     """
     return [
-        measurer.token_ids(_normalize_ranking_text(text))
-        for text in _contextual_ranking_texts(segments)
+        measurer.token_ids(_normalize_ranking_text(_contextual_ranking_text(segments, index)))
+        for index in range(len(segments))
     ]
 
 
@@ -366,12 +384,13 @@ def _bm25_scores(documents: list[list[int]], query: list[int]) -> list[float]:
     document_count = len(documents)
     average_length = sum(map(len, documents)) / document_count if document_count else 0.0
     document_frequency = Counter(term for document in documents for term in set(document))
+    query_terms = set(query)
     scores: list[float] = []
     for document in documents:
         term_counts = Counter(document)
         length_ratio = len(document) / average_length if average_length else 0.0
         score = 0.0
-        for term in set(query):
+        for term in query_terms:
             frequency = term_counts[term]
             if not frequency:
                 continue
@@ -443,6 +462,39 @@ def _signal_score(segment: Segment) -> float:
     return sum(indicators) / len(indicators)
 
 
+def _sparse_norm(vector: dict[int, float]) -> float:
+    """Return the Euclidean norm of a sparse numeric vector.
+
+    Args:
+        vector: Sparse numeric vector.
+
+    Returns:
+        Euclidean norm.
+    """
+    return math.sqrt(sum(value * value for value in vector.values()))
+
+
+def _sparse_cosine_with_norm_product(
+    left: dict[int, float],
+    right: dict[int, float],
+    norm_product: float,
+) -> float:
+    """Compute sparse cosine similarity with cached vector norms.
+
+    Args:
+        left: First sparse vector.
+        right: Second sparse vector.
+        norm_product: Product of the vectors' Euclidean norms.
+
+    Returns:
+        Cosine similarity, or zero for an empty vector.
+    """
+    if not left or not right or not norm_product:
+        return 0.0
+    dot_product = sum(value * right.get(term, 0.0) for term, value in left.items())
+    return dot_product / norm_product
+
+
 def _sparse_cosine(left: dict[int, float], right: dict[int, float]) -> float:
     """Compute cosine similarity between sparse numeric vectors.
 
@@ -453,12 +505,11 @@ def _sparse_cosine(left: dict[int, float], right: dict[int, float]) -> float:
     Returns:
         Cosine similarity, or zero for an empty vector.
     """
-    if not left or not right:
-        return 0.0
-    dot_product = sum(value * right.get(term, 0.0) for term, value in left.items())
-    left_norm = math.sqrt(sum(value * value for value in left.values()))
-    right_norm = math.sqrt(sum(value * value for value in right.values()))
-    return dot_product / (left_norm * right_norm) if left_norm and right_norm else 0.0
+    return _sparse_cosine_with_norm_product(
+        left,
+        right,
+        _sparse_norm(left) * _sparse_norm(right),
+    )
 
 
 def _sparse_similarity(
@@ -472,6 +523,7 @@ def _sparse_similarity(
     Returns:
         Pairwise sparse cosine lookup.
     """
+    norms = [_sparse_norm(vector) for vector in vectors]
 
     def similarity(left_index: int, right_index: int) -> float:
         """Compare two sparse candidate vectors.
@@ -483,7 +535,11 @@ def _sparse_similarity(
         Returns:
             Sparse cosine similarity.
         """
-        return _sparse_cosine(vectors[left_index], vectors[right_index])
+        return _sparse_cosine_with_norm_product(
+            vectors[left_index],
+            vectors[right_index],
+            norms[left_index] * norms[right_index],
+        )
 
     return similarity
 

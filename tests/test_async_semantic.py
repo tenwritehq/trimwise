@@ -205,31 +205,31 @@ def test_provider_options_reach_fastembed(monkeypatch: pytest.MonkeyPatch) -> No
     [{}, {"providers": ["CUDAExecutionProvider"]}],
     ids=["cpu", "gpu"],
 )
-def test_inference_collects_temporary_garbage(
+def test_inference_does_not_force_process_garbage_collection(
     monkeypatch: pytest.MonkeyPatch,
     fastembed_options: dict[str, Any],
 ) -> None:
-    """Run garbage collection after CPU- or GPU-configured inference.
+    """Avoid scanning the host process heap after managed inference.
 
     Args:
         monkeypatch: Pytest patch helper.
         fastembed_options: Provider configuration under test.
     """
-    collections = 0
 
-    def collect() -> int:
-        """Record one requested collection."""
-        nonlocal collections
-        collections += 1
-        return 0
+    def reject_collection() -> int:
+        """Fail if inference requests process-wide garbage collection.
+
+        Raises:
+            AssertionError: Always, because backend calls must not force collection.
+        """
+        raise AssertionError("managed inference forced process-wide garbage collection")
 
     monkeypatch.setattr(
         "trimwise.semantic.import_module",
         lambda _: SimpleNamespace(TextEmbedding=_FakeModel),
     )
-    monkeypatch.setattr(gc, "collect", collect)
+    monkeypatch.setattr(gc, "collect", reject_collection)
     SemanticEmbedder(TrimConfig(fastembed_options=fastembed_options)).embed("query", ["target"])
-    assert collections == 1
 
 
 def test_hybrid_strategy_uses_both_rankers(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -363,6 +363,41 @@ def test_callback_output_is_validated(passages: list[list[float]]) -> None:
         )
 
 
+def test_callback_output_stops_after_first_excess_vector() -> None:
+    """Bound malformed callback iterables by the known passage count."""
+    produced = 0
+
+    def passage_vectors() -> Iterator[list[float]]:
+        """Yield vectors and fail if validation consumes beyond the first excess row.
+
+        Yields:
+            Reusable one-dimensional passage vectors.
+
+        Raises:
+            AssertionError: If validation requests a fourth row.
+        """
+        nonlocal produced
+        while True:
+            produced += 1
+            if produced > 3:
+                raise AssertionError("callback output was over-consumed")
+            yield [1.0]
+
+    def embed(_: str, __: Sequence[str]) -> tuple[list[float], Iterator[list[float]]]:
+        """Return one query vector and a malformed excessive passage stream."""
+        return [1.0], passage_vectors()
+
+    with pytest.raises(SemanticBackendError, match="embedding callback output"):
+        Trimmer(embedding_callback=embed).trim(
+            "one\n\ntwo",
+            2,
+            unit="characters",
+            strategy="semantic",
+            query="q",
+        )
+    assert produced == 3
+
+
 def test_short_semantic_input_does_not_call_sync_embedding_callback() -> None:
     """Preserve the unchanged fast path before caller inference."""
 
@@ -483,22 +518,13 @@ def test_semantic_failures_are_staged_and_chained(
                 return
             yield from super().passage_embed(passages, **kwargs)
 
-    collections = 0
-
-    def collect() -> int:
-        """Record cleanup after the failed inference job."""
-        nonlocal collections
-        collections += 1
-        return 0
-
     monkeypatch.setattr(
         "trimwise.semantic.import_module",
         lambda _: SimpleNamespace(TextEmbedding=BrokenModel),
     )
-    monkeypatch.setattr(gc, "collect", collect)
     with pytest.raises(SemanticBackendError) as captured:
         Trimmer().trim("one\n\ntwo\n\nthree", 2, unit="characters", strategy="semantic", query="q")
-    assert (captured.value.__cause__ is not None, collections) == (True, 1)
+    assert captured.value.__cause__ is not None
 
 
 def test_empty_query_vector_is_a_staged_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -522,14 +548,26 @@ def test_empty_query_vector_is_a_staged_failure(monkeypatch: pytest.MonkeyPatch)
 
 def test_multiple_query_vectors_are_a_staged_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Reject a backend that returns more than one vector for one query."""
+    produced = 0
 
     class MultipleQueryModel(_FakeModel):
         """Return two query vectors for one query."""
 
         def query_embed(self, _: str) -> Iterator[NDArray[np.float32]]:
-            """Yield an invalid number of query vectors."""
-            yield np.asarray([1.0, 0.0], dtype=np.float32)
-            yield np.asarray([0.0, 1.0], dtype=np.float32)
+            """Yield two vectors and fail if validation requests a third.
+
+            Yields:
+                Two invalid query vectors.
+
+            Raises:
+                AssertionError: If validation consumes beyond the known invalid count.
+            """
+            nonlocal produced
+            while True:
+                produced += 1
+                if produced > 2:
+                    raise AssertionError("query output was over-consumed")
+                yield np.asarray([1.0, 0.0], dtype=np.float32)
 
     monkeypatch.setattr(
         "trimwise.semantic.import_module",
@@ -537,6 +575,53 @@ def test_multiple_query_vectors_are_a_staged_failure(monkeypatch: pytest.MonkeyP
     )
     with pytest.raises(SemanticBackendError, match="query inference"):
         Trimmer().trim("one\n\ntwo", 2, unit="characters", strategy="semantic", query="q")
+    assert produced == 2
+
+
+def test_excess_passage_vectors_stop_after_first_unexpected_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Bound malformed managed passage iterables by the supplied passage count.
+
+    Args:
+        monkeypatch: Pytest attribute replacement helper.
+    """
+    produced = 0
+
+    class ExcessPassageModel(_FakeModel):
+        """Return one more passage vector than requested."""
+
+        def passage_embed(
+            self,
+            passages: list[str],
+            **_: Any,
+        ) -> Iterator[NDArray[np.float32]]:
+            """Yield one excess row and fail if validation keeps consuming.
+
+            Args:
+                passages: Candidate source texts.
+                **_: Ignored inference options.
+
+            Yields:
+                Valid-shaped passage vectors including one excess row.
+
+            Raises:
+                AssertionError: If validation requests a second excess row.
+            """
+            nonlocal produced
+            while True:
+                produced += 1
+                if produced > len(passages) + 1:
+                    raise AssertionError("passage output was over-consumed")
+                yield np.asarray([1.0, 0.0], dtype=np.float32)
+
+    monkeypatch.setattr(
+        "trimwise.semantic.import_module",
+        lambda _: SimpleNamespace(TextEmbedding=ExcessPassageModel),
+    )
+    with pytest.raises(SemanticBackendError, match="passage inference"):
+        SemanticEmbedder(Trimmer().config).embed("query", ["one", "two"])
+    assert produced == 3
 
 
 @pytest.mark.asyncio

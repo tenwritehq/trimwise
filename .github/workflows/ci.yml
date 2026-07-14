@@ -68,5 +68,5 @@ jobs:
       - run: >-
           wheel-test/bin/python -c
           "import importlib.metadata, trimwise;
-          assert importlib.metadata.version('trimwise') == '0.1.0';
+          assert importlib.metadata.version('trimwise') == '0.1.1';
           assert len(trimwise.__all__) == 6"
