@@ -1,48 +1,51 @@
 # Trimwise
 
-**Keep instructions intact. Smart-trim each source. Give the LLM higher-signal context.**
+Trimwise creates high-signal excerpts from long documents, search results you have already fetched, logs, and tool output
+before you assemble an LLM prompt. Keep your system prompt, task instructions, and output schema unchanged. 
+Trim each evidence source independently, then add the compact, high-signal excerpts to your prompt.
 
-Trimwise creates high-signal excerpts from documents, already-fetched search results, logs, and tool
-output before you assemble an LLM prompt. Keep system instructions, task instructions, and output
-schemas unchanged; trim each evidence source independently; then place the resulting excerpts into
-the prompt.
+Instead of simply returning text[:N], Trimwise selects useful passages from across each source while preserving their original order. 
+It can retain complete sections, prioritize content relevant to a question, and reduce repetitive evidence — all within an exact token, word, or character budget.
 
-Each source is shortened to an exact token, word, or character budget while useful material is
-selected from across it. Instead of returning only `text[:N]`, Trimwise can retain complete
-sections, find passages relevant to a question, reduce repeated-looking evidence, and keep selected
-text in its original order.
+Trimwise is for compacting evidence, not retrieving it. It does not search, fetch documents, or query an index, database, 
+or vector store. Your application supplies the text; Trimwise returns a smaller, more useful version for the prompt than naive truncation.
 
-Trimwise is not a search, retrieval, or RAG system. It does not fetch documents or query an index,
-database, or vector store; it only ranks and trims text your application passes in.
+- 🎯 **Built for prompt assembly:** trim each evidence source independently while leaving your
+  system prompt, task instructions, and output schema untouched.
+- 📏 **Exact caller-defined ceilings:** the complete result is measured again before it is returned
+  and never exceeds the requested token, word, or character limit.
+- 🧾 **Verbatim, traceable excerpts:** selected fragments keep their original wording and source
+  order, with affordable omission markers showing where material was skipped.
+- 🧭 **Coverage across the whole source:** Trimwise can select headings, paragraphs, lists, tables,
+  code fences, sentences, and lines instead of assuming the beginning contains everything useful.
+- 🔎 **Task-aware when you need it:** use BM25 for exact terms, semantic similarity for paraphrases
+  or multilingual meaning, or hybrid scoring when both matter.
+- 📚 **[Research-grounded selection](#research-foundations):** combines established ideas including
+  BM25, centroid salience, sentence embeddings, normalized score fusion, MMR, and adaptive evidence
+  selection.
+- ⚡ **Lightweight unless you choose semantics:** structural and lexical trimming need no embedding
+  model; bring your own callback or install FastEmbed only for explicit semantic or hybrid use.
+- 🔄 **Sync, async, and typed:** use `trim()` or non-blocking `atrim()` on Python 3.10–3.14 with
+  inline type information.
 
-- **Lightweight by default:** the core uses BM25 and TF-IDF; embeddings are optional.
-- **Exact budget:** every result is measured again before it is returned.
-- **Source faithful:** retained fragments are copied from the input, not rewritten.
-- **Markdown and plain text:** headings, paragraphs, lists, tables, code fences, and sentences can
-  become selection units.
-- **Sync and async:** use `trim()` or the non-blocking `atrim()` API.
-- **Python 3.10-3.14:** ships with inline type information.
-
-<details>
-<summary><strong>Table of contents</strong></summary>
+# Table of contents
 
 - [Main use case: high-signal excerpts for LLMs](#main-use-case-high-signal-excerpts-for-llms)
 - [Why Trimwise instead of slicing or model-based compression?](#why-trimwise-instead-of-slicing-or-model-based-compression)
 - [Installation](#installation)
 - [Quick start](#quick-start)
-- [Async usage](#async-usage)
-- [Configuration](#configuration)
-- [Result object](#result-object)
-- [Which strategy should I use?](#which-strategy-should-i-use)
-- [How Trimwise works](#how-trimwise-works)
 - [Research foundations](#research-foundations)
+- [How Trimwise works](#how-trimwise-works)
+- [Configuration](#configuration)
+- [Async usage](#async-usage)
+- [Result object](#result-object)
+- [Semantic models](#semantic-models)
+- [Which strategy should I use?](#which-strategy-should-i-use)
 - [Budgets and tokenizers](#budgets-and-tokenizers)
 - [Markdown and source fidelity](#markdown-and-source-fidelity)
-- [Semantic models](#semantic-models)
 - [Guarantees and limitations](#guarantees-and-limitations)
 - [Project](#project)
 
-</details>
 
 ## Main use case: high-signal excerpts for LLMs
 
@@ -166,15 +169,17 @@ py -m venv .venv
 python -m pip install --upgrade pip
 ```
 
-If your project already manages an environment, use that environment and skip this step.
+If your project already manages an environment, use that environment and skip this step. With
+`uv`, run the appropriate `uv add` command below from your project directory; `uv` records the
+dependency in your project and manages its environment, so manual activation is not required.
 
 ### Choose an installation
 
-| You need | Install | What becomes available |
-| --- | --- | --- |
-| Text trimming or your own embedding backend | `python -m pip install trimwise` | Every strategy; semantic and hybrid require your callback |
-| Built-in CPU semantic model | `python -m pip install "trimwise[semantic]"` | Every strategy through Trimwise's local FastEmbed integration |
-| Built-in NVIDIA GPU semantic model | `python -m pip install "trimwise[semantic-gpu]"` | Every strategy through Trimwise's CUDA-enabled FastEmbed integration |
+| You need | With `pip` | With `uv` | What becomes available |
+| --- | --- | --- | --- |
+| Text trimming or your own embedding backend | `python -m pip install trimwise` | `uv add trimwise` | Every strategy; semantic and hybrid require your callback |
+| Built-in CPU semantic model | `python -m pip install "trimwise[semantic]"` | `uv add "trimwise[semantic]"` | Every strategy through Trimwise's local FastEmbed integration |
+| Built-in NVIDIA GPU semantic model | `python -m pip install "trimwise[semantic-gpu]"` | `uv add "trimwise[semantic-gpu]"` | Every strategy through Trimwise's CUDA-enabled FastEmbed integration |
 
 The core installation includes Markdown parsing, tiktoken measurement, and NumPy vector scoring.
 It does not install FastEmbed or an embedding model. Structural, lexical, and automatic trimming
@@ -247,25 +252,85 @@ embedding model.
 
 If the input already fits, Trimwise returns it byte-for-byte unchanged without parsing it.
 
-## Async usage
+## Research foundations
 
-```python
-result = await trimmer.atrim(
-    document,
-    500,
-    strategy="semantic",
-    query="What are the main risks?",
-)
-```
+Trimwise uses proven ideas from search and extractive summarization to answer one practical
+question: **which parts of the text you supplied deserve the limited space in your prompt?** You
+still provide the document—Trimwise does not search the web, retrieve files, query a vector store,
+or build a RAG system.
 
-With structural, lexical, FastEmbed, or a synchronous embedding callback, `atrim()` runs the
-pipeline in a worker thread so the event loop remains responsive. With an asynchronous embedding
-callback, parsing and CPU scoring still run in worker threads while the callback itself is awaited
-on the calling event loop.
+The papers below motivate individual scoring and selection ideas. Trimwise adapts those ideas to
+complete source-backed fragments, exact caller-defined budgets, and deterministic selection rules;
+it is not a reproduction of any paper's complete system.
 
-Cancellation propagates to a currently awaited asynchronous embedding callback. During worker
-thread work, cancellation stops waiting for the result, but Python cannot forcibly terminate a
-thread that has already started.
+| Idea | What it helps preserve | How Trimwise applies it | Research |
+| --- | --- | --- | --- |
+| BM25 lexical relevance | Exact names, IDs, error codes, URLs, and wording from your query | Scores each source unit against the query with BM25. This is the fast, model-free foundation of `lexical`. | [The Probabilistic Relevance Framework: BM25 and Beyond](https://doi.org/10.1561/1500000019) |
+| TF-IDF document centroid | Material that represents the document's main vocabulary when you have no query | Compares each unit with the average TF-IDF representation of the supplied document. Central passages score higher, while structural coverage prevents one section from taking everything. | [Centroid-based summarization](https://aclanthology.org/W00-0403/) |
+| Sentence embeddings and cosine similarity | Paraphrases, related concepts, and—when the model supports them—meaning across languages | `semantic` compares the query with context-enriched candidate passages using your embedding callback or Trimwise's multilingual default model. | [Sentence-BERT](https://aclanthology.org/D19-1410/) and [multilingual sentence embeddings](https://aclanthology.org/2020.emnlp-main.365/) |
+| Normalized convex fusion | Both exact evidence and differently worded explanations | `hybrid` min-max normalizes usable BM25 and semantic scores, then blends them equally. The fixed 50/50 balance needs no training data and preserves score strength instead of using rank alone. | [An Analysis of Fusion Functions for Hybrid Retrieval](https://arxiv.org/abs/2210.11934) |
+| Reciprocal Rank Fusion (RRF) | A stable hybrid ordering when one score source cannot be compared meaningfully | RRF with `k=60` is a defensive fallback only when a BM25 or semantic score row is flat or non-finite; it is not Trimwise's normal hybrid path. | [Reciprocal Rank Fusion](https://doi.org/10.1145/1571941.1572114) |
+| Maximal Marginal Relevance (MMR) | More coverage and less repeated-looking evidence | After relevance scoring, each new choice is rewarded for usefulness and penalized for similarity to selected material. The default balance is 70% relevance and 30% redundancy reduction. | [Using MMR for Diversity-Based Reranking](https://aclanthology.org/X98-1025/) |
+| Adaptive evidence count | Avoiding weak filler simply because the budget has space left | Query-aware modes keep candidates around the strongest score drop plus a small recall buffer. This is a score-distribution adaptation of Adaptive-k's central idea, not its exact threshold method. | [Efficient Context Selection with Adaptive-k](https://aclanthology.org/2025.emnlp-main.1017/) |
+
+### What Trimwise adds for prompt use
+
+Research scores alone do not provide Trimwise's product behavior. Trimwise adds a source-preserving
+layer around them:
+
+- Candidate passages can see their nearby heading and same-section neighbors while being scored,
+  which helps short fragments make sense. The returned fragment is still copied from its exact
+  source location.
+- Headings, URLs, numbers or dates, and code-like identifiers receive a small language-neutral
+  signal boost so useful operational details are less likely to disappear when primary relevance
+  scores are close.
+- MMR uses TF-IDF similarity for structural and lexical trimming, and embedding similarity for
+  semantic and hybrid trimming. This keeps the lightweight paths model-free.
+- Every proposed selection is restored to source order, composed with any affordable omission
+  markers and headings, and measured as a complete result before it is accepted.
+
+These methods estimate usefulness; they do not understand factual truth. MMR can reduce passages
+that *look* repetitive, but differently worded copies of one fact may still survive, while distinct
+facts with similar wording may suppress one another. Improving factual coverage without adding a
+heavy claim-extraction model remains a benchmark-led item in the [roadmap](ROADMAP.md).
+
+## How Trimwise works
+
+Trimwise does not rewrite or summarize your document. It decides which original source units carry
+the most useful signal, then fits those units into the requested ceiling:
+
+1. **Measure the input.** If the text already fits, Trimwise returns it byte-for-byte unchanged
+   without parsing Markdown or loading an embedding model.
+2. **Find meaningful units.** Markdown and plain text are mapped to exact source spans such as
+   headings, paragraphs, lists, tables, code fences, sentences, and lines. This lets Trimwise keep
+   complete ideas instead of cutting at an arbitrary character or token position.
+3. **Estimate usefulness.** `structural` looks for content central to the document; `lexical` uses
+   BM25 to match exact query terms; `semantic` uses embeddings to match meaning and paraphrases;
+   and `hybrid` combines the lexical and semantic scores.
+4. **Choose complementary evidence.** Trimwise prefers highly useful units while reducing
+   repeated-looking material. Every proposed addition is composed and measured with its real
+   separators and omission markers, so a fragment is accepted only when the complete result fits.
+5. **Build the excerpt.** Chosen fragments return to their original source order, visible omission
+   markers are added where affordable, and the finished excerpt is measured once more before it is
+   returned.
+
+Without a query, structural mode aims for coverage across the document rather than a fixed split
+such as 50/25/25. It keeps the beginning and ending units when both fit, gives every Markdown
+section an initial share of the available space, then redistributes unused room to central,
+nonredundant material. If plain text arrives as one oversized paragraph, complete sentences or
+source lines become independently rankable when possible, allowing useful material from the
+middle and end to survive.
+
+With a query, lexical, semantic, and hybrid modes focus on the strongest matching evidence instead
+of forcing document-wide coverage. They keep candidates around the clearest drop in relevance,
+plus a small recall buffer, so the result may stop below the limit rather than fill the remaining
+space with weak matches. When a chosen passage belongs under a section heading, that heading is
+included when it fits, helping the model understand what the passage refers to.
+
+Ranking also considers a candidate's nearest section heading and adjacent units from the same
+section. This extra context can make short passages easier to score—for example, a paragraph saying
+“It increased by 18%” is more meaningful beside its heading and neighboring explanation. Context
+is used only to choose fragments: the returned passage remains exact source text.
 
 ## Configuration
 
@@ -332,169 +397,39 @@ For one-off token accounting, pass `token_counter=` to `trim()` or `atrim()` ins
 new configuration. A custom counter changes budget measurement for that call; `token_encoding`
 continues to provide the internal subword representation used for ranking.
 
-## Result object
-
-`trim()` and `atrim()` return an immutable `TrimResult`:
-
-| Field | Meaning |
-| --- | --- |
-| `text` | Retained source text |
-| `input_count` | Measured input size |
-| `output_count` | Measured result size |
-| `limit` | Requested maximum |
-| `unit` | Unit used for the counts |
-| `strategy` | Concrete strategy used after resolving `auto` |
-| `trimmed` | Whether the returned text differs from the input |
-
-## Which strategy should I use?
-
-Start with the kind of information you need to preserve:
-
-- **No question or task:** use `auto` or `structural` for a balanced document overview.
-- **Exact names, IDs, error codes, or phrases:** use `auto` with a query, or choose `lexical`.
-- **Paraphrases, concepts, or meaning across languages:** choose `semantic`.
-- **Exact evidence and broader meaning both matter:** choose `hybrid`.
-
-If you are unsure, use `auto`. It stays lightweight: without a query it resolves to `structural`;
-with a query it resolves to `lexical`. It never loads an embedding model.
-
-| Strategy | Choose it when | How it chooses source fragments | Cost and important behavior |
-| --- | --- | --- | --- |
-| `auto` | You want a safe default | Resolves to `structural` without a query and `lexical` with one | Core installation only; never loads FastEmbed |
-| `structural` | You need a useful overview but have no specific question | Protects useful opening and closing context, spreads space across sections, favors content central to the document, and avoids near-duplicates | Core installation only; ignores a supplied query |
-| `lexical` | The query contains exact evidence such as `ORION-774`, a function name, product name, or error message | Uses BM25 to find source fragments sharing important query terms, then favors complementary fragments | Core installation only; fast and deterministic, but does not understand paraphrases as well as `semantic` |
-| `semantic` | The document may express the answer with different words, or the query and text may use different languages | Uses embedding similarity to compare meaning, then favors complementary fragments | Requires your [embedding callback](#semantic-models) or an optional FastEmbed installation |
-| `hybrid` | You cannot afford to miss either an exact identifier or a differently worded explanation | Combines normalized BM25 and embedding scores before selecting complementary fragments | Requires your [embedding callback](#semantic-models) or FastEmbed; usually the most compute-intensive choice |
-
-`lexical`, `semantic`, and `hybrid` require a nonblank query. Unlike positional truncation, these
-query-aware strategies do not force the beginning or end into the result. They may also stop before
-the limit when the remaining fragments are much weaker, so an “at most 500 tokens” budget does not
-become 500 tokens of loosely related text. When space allows, Trimwise includes the nearest section
-heading so an excerpt remains understandable.
-
-Every strategy keeps selected text byte-for-byte from the source, emits fragments in source order,
-and rechecks the complete result against the requested budget. Diversity scoring discourages
-repeated wording or meaning; it is a useful duplicate-control signal, not proof that two fragments
-contain different facts. Trimwise ranks only the string you provide—it does not search documents,
-query an index, or perform RAG.
-
-Here are the common choices in code. Exact lowercase strings and `Strategy` enum values are both
-accepted.
+## Async usage
 
 ```python
-from trimwise import Trimmer
-
-trimmer = Trimmer()
-
-# No question: preserve a balanced, high-signal overview.
-overview = trimmer.trim(document, limit=500)
-
-# Exact identifier: auto resolves to the lightweight lexical strategy.
-incident = trimmer.trim(document, limit=500, query="ORION-774")
-
-# The answer may use different words or another language.
-cause = trimmer.trim(
-    document,
-    limit=500,
-    strategy="semantic",
-    query="Why did authentication fail?",
-)
-
-# Preserve both the exact incident ID and semantically related explanations.
-mixed = trimmer.trim(
-    document,
-    limit=500,
-    strategy="hybrid",
-    query="What caused incident ORION-774?",
-)
-```
-
-## How Trimwise works
-
-Trimwise follows the same high-level pipeline for every strategy:
-
-1. **Measure:** return the original input immediately when it already fits.
-2. **Segment:** split Markdown or plain text into source-backed units such as headings,
-   paragraphs, lists, tables, code fences, sentences, or lines.
-3. **Rank:** score those units using document centrality, BM25, embeddings, or both.
-4. **Select:** prefer useful candidates while penalizing candidates similar to material already
-   selected.
-5. **Compose:** restore source order, add affordable omission markers, and measure the complete
-   result again.
-
-Structural mode does not use a fixed ratio such as 50/25/25. It protects fitting beginning and
-ending units, gives each Markdown section a provisional share, and fills the remaining budget with
-central, nonredundant material. A single oversized plain-text paragraph is expanded into complete
-sentences or source lines before ranking when possible.
-
-Query-aware modes first narrow the candidate pool around the strongest query evidence. They may
-stop below the requested limit rather than padding the result with weakly related text. When a
-selected passage has a section heading, Trimwise includes that heading when it fits.
-
-For scoring only, a candidate can see its nearest section heading and neighboring source units.
-The returned fragment is still the candidate's exact source text.
-
-## Research foundations
-
-Trimwise combines established ranking and extractive-summarization ideas. It adapts them to exact
-budgets and source-backed fragments; it does not claim to reproduce every paper's full system.
-Some cited work studies information retrieval, but Trimwise borrows only its scoring or selection
-concepts—it does not retrieve documents.
-
-| Concept | How Trimwise uses it | Research |
-| --- | --- | --- |
-| BM25 relevance | Fast lexical matching between a query and source units | [The Probabilistic Relevance Framework: BM25 and Beyond](https://doi.org/10.1561/1500000019) |
-| TF-IDF centroid | Queryless units are compared with the document's lexical center | Centroid-based queryless extraction is discussed in the original [MMR summarization work](https://aclanthology.org/X98-1025/) |
-| Maximal Marginal Relevance | Each choice balances relevance against similarity to already selected units | [Using MMR for Diversity-Based Reranking](https://aclanthology.org/X98-1025/) |
-| Hybrid score fusion | Usable BM25 and semantic scores are normalized and blended equally | [Hybrid fusion analysis](https://arxiv.org/abs/2210.11934) |
-| Reciprocal Rank Fusion | RRF is a defensive fallback when a hybrid score row is flat or invalid | [Reciprocal Rank Fusion](https://doi.org/10.1145/1571941.1572114) |
-| Adaptive evidence count | A query-specific score drop bounds evidence, with a small recall buffer | Inspired by [Adaptive-k context selection](https://aclanthology.org/2025.emnlp-main.1017/) |
-
-MMR measures vector similarity, not factual truth. It discourages fragments that *look* redundant;
-it cannot guarantee that every retained fragment contains a different fact. Improving factual
-coverage without adding a heavy claim-extraction model is an active benchmark item in the
-[roadmap](ROADMAP.md).
-
-## Budgets and tokenizers
-
-Trimwise supports tokens, whitespace-separated words, and Python character counts:
-
-```python
-from trimwise import BudgetUnit, Trimmer
-
-trimmer = Trimmer()
-
-by_tokens = trimmer.trim(document, 500)
-by_words = trimmer.trim(document, 300, unit=BudgetUnit.WORDS)
-by_characters = trimmer.trim(document, 2_000, unit="characters")
-```
-
-Token budgets use tiktoken's `o200k_base` encoding by default. Tiktoken may need network access on
-first use while it populates its local encoding cache.
-
-Use a custom counter when the destination model has a different tokenizer:
-
-```python
-result = trimmer.trim(
+result = await trimmer.atrim(
     document,
     500,
-    token_counter=lambda value: len(my_tokenizer.encode(value)),
+    strategy="semantic",
+    query="What are the main risks?",
 )
 ```
 
-A custom token counter is valid only with token budgets. Trimwise remeasures every proposed final
-result through that callback.
+With structural, lexical, FastEmbed, or a synchronous embedding callback, `atrim()` runs the
+pipeline in a worker thread so the event loop remains responsive. With an asynchronous embedding
+callback, parsing and CPU scoring still run in worker threads while the callback itself is awaited
+on the calling event loop.
 
-## Markdown and source fidelity
+Cancellation propagates to a currently awaited asynchronous embedding callback. During worker
+thread work, cancellation stops waiting for the result, but Python cannot forcibly terminate a
+thread that has already started.
 
-Trimwise recognizes CommonMark headings, paragraphs, nested lists, blockquotes, tables, HTML
-blocks, fenced code, front matter, reference definitions, and otherwise uncovered source ranges.
-It slices the original input instead of rendering Markdown again.
+## Result object
 
-Skipped ranges receive the configured omission marker when it fits. Retained content always takes
-priority over markers. If no complete unit fits, Trimwise progressively tries smaller complete
-units and finally an exact fitting source prefix. Closed code fences keep their opening and closing
-fences during fallback; genuinely unclosed fences remain unclosed.
+Both `trim()` and `atrim()` return a `TrimResult`: the trimmed text, plus a quick record of what changed and how much room it used.
+
+| Field | What it tells you |
+| --- | --- |
+| `text` | The ready-to-use excerpt for your prompt |
+| `input_count` | Size of the original source |
+| `output_count` | Size of the excerpt |
+| `limit` | The maximum size you asked for |
+| `unit` | Whether sizes are counted in tokens, words, or characters |
+| `strategy` | How Trimwise chose the excerpt (`auto` resolves to the strategy actually used) |
+| `trimmed` | `True` when the source was shortened; `False` when it already fit |
 
 ## Semantic models
 
@@ -502,11 +437,11 @@ Semantic trimming finds relevant passages even when the document uses different 
 query. Hybrid trimming combines that meaning-based matching with BM25 exact-term matching. Only
 these two explicit strategies need embeddings.
 
-| Choose | Install | Best when |
-| --- | --- | --- |
-| Your own embedding callback | `python -m pip install trimwise` | You already have a local model, hosted API, internal service, or embedding cache |
-| Trimwise-managed FastEmbed on CPU | `python -m pip install "trimwise[semantic]"` | You want semantic trimming to work without connecting another model |
-| Trimwise-managed FastEmbed on an NVIDIA GPU | `python -m pip install "trimwise[semantic-gpu]"` | You already have a compatible CUDA environment |
+| Choose | With `pip` | With `uv` | Best when |
+| --- | --- | --- | --- |
+| Your own embedding callback | `python -m pip install trimwise` | `uv add trimwise` | You already have a local model, hosted API, internal service, or embedding cache |
+| Trimwise-managed FastEmbed on CPU | `python -m pip install "trimwise[semantic]"` | `uv add "trimwise[semantic]"` | You want semantic trimming to work without connecting another model |
+| Trimwise-managed FastEmbed on an NVIDIA GPU | `python -m pip install "trimwise[semantic-gpu]"` | `uv add "trimwise[semantic-gpu]"` | You already have a compatible CUDA environment |
 
 **Already have an embedding model or API?** Use the normal `trimwise` installation and pass a
 callback. Both `semantic` and `hybrid` then work without installing a semantic extra, importing
@@ -618,22 +553,169 @@ instances can run in parallel, but each may consume additional model memory. Fas
 download, and inference failures raise `SemanticBackendError`; Trimwise never silently replaces
 semantic scoring with lexical scoring.
 
+## Which strategy should I use?
+
+Start with the kind of information you need to preserve:
+
+- **No question or task:** use `auto` or `structural` for a balanced document overview.
+- **Exact names, IDs, error codes, or phrases:** use `auto` with a query, or choose `lexical`.
+- **Paraphrases, concepts, or meaning across languages:** choose `semantic`.
+- **Exact evidence and broader meaning both matter:** choose `hybrid`.
+
+If you are unsure, use `auto`. It stays lightweight: without a query it resolves to `structural`;
+with a query it resolves to `lexical`. It never loads an embedding model.
+
+| Strategy | Choose it when | How it chooses source fragments | Cost and important behavior |
+| --- | --- | --- | --- |
+| `auto` | You want a safe default | Resolves to `structural` without a query and `lexical` with one | Core installation only; never loads FastEmbed |
+| `structural` | You need a useful overview but have no specific question | Protects useful opening and closing context, spreads space across sections, favors content central to the document, and avoids near-duplicates | Core installation only; ignores a supplied query |
+| `lexical` | The query contains exact evidence such as `ORION-774`, a function name, product name, or error message | Uses BM25 to find source fragments sharing important query terms, then favors complementary fragments | Core installation only; fast and deterministic, but does not understand paraphrases as well as `semantic` |
+| `semantic` | The document may express the answer with different words, or the query and text may use different languages | Uses embedding similarity to compare meaning, then favors complementary fragments | Requires your [embedding callback](#semantic-models) or an optional FastEmbed installation |
+| `hybrid` | You cannot afford to miss either an exact identifier or a differently worded explanation | Combines normalized BM25 and embedding scores before selecting complementary fragments | Requires your [embedding callback](#semantic-models) or FastEmbed; usually the most compute-intensive choice |
+
+`lexical`, `semantic`, and `hybrid` require a nonblank query. Unlike positional truncation, these
+query-aware strategies do not force the beginning or end into the result. They may also stop before
+the limit when the remaining fragments are much weaker, so an “at most 500 tokens” budget does not
+become 500 tokens of loosely related text. When space allows, Trimwise includes the nearest section
+heading so an excerpt remains understandable.
+
+Every strategy keeps selected text byte-for-byte from the source, emits fragments in source order,
+and rechecks the complete result against the requested budget. Diversity scoring discourages
+repeated wording or meaning; it is a useful duplicate-control signal, not proof that two fragments
+contain different facts. Trimwise ranks only the string you provide—it does not search documents,
+query an index, or perform RAG.
+
+Here are the common choices in code. Exact lowercase strings and `Strategy` enum values are both
+accepted.
+
+```python
+from trimwise import Trimmer
+
+trimmer = Trimmer()
+
+# No question: preserve a balanced, high-signal overview.
+overview = trimmer.trim(document, limit=500)
+
+# Exact identifier: auto resolves to the lightweight lexical strategy.
+incident = trimmer.trim(document, limit=500, query="ORION-774")
+
+# The answer may use different words or another language.
+cause = trimmer.trim(
+    document,
+    limit=500,
+    strategy="semantic",
+    query="Why did authentication fail?",
+)
+
+# Preserve both the exact incident ID and semantically related explanations.
+mixed = trimmer.trim(
+    document,
+    limit=500,
+    strategy="hybrid",
+    query="What caused incident ORION-774?",
+)
+```
+
+## Budgets and tokenizers
+
+Trimwise supports tokens, whitespace-separated words, and Python character counts:
+
+```python
+from trimwise import BudgetUnit, Trimmer
+
+trimmer = Trimmer()
+
+by_tokens = trimmer.trim(document, 500)
+by_words = trimmer.trim(document, 300, unit=BudgetUnit.WORDS)
+by_characters = trimmer.trim(document, 2_000, unit="characters")
+```
+
+Token budgets use tiktoken's `o200k_base` encoding by default. Tiktoken may need network access on
+first use while it populates its local encoding cache.
+
+Use a custom counter when the destination model has a different tokenizer:
+
+```python
+result = trimmer.trim(
+    document,
+    500,
+    token_counter=lambda value: len(my_tokenizer.encode(value)),
+)
+```
+
+A custom token counter is valid only with token budgets. Trimwise remeasures every proposed final
+result through that callback.
+
+## Markdown and source fidelity
+
+Trimwise shortens Markdown without flattening it into plain text. It recognizes headings,
+paragraphs, nested lists, blockquotes, tables, HTML blocks, fenced code, YAML-style front matter,
+reference definitions, and source ranges that CommonMark does not classify. Selected fragments are
+copied directly from the input instead of being rendered or rewritten, preserving their exact
+wording, indentation, list markers, links, code-fence language tags, and source order.
+
+That fidelity matters in agentic workflows. An agent may need to quote evidence, follow a command,
+read a table, preserve a citation, or distinguish prose from executable code. Keeping the original
+structure gives the model those signals and makes every retained fragment traceable to its source.
+When non-adjacent ranges are joined, Trimwise adds the configured omission marker where it fits, so
+the model can see that content was removed rather than mistake two distant passages for one
+continuous statement. Retained source content always takes priority when there is not enough room
+for a marker.
+
+Very small budgets use a predictable fallback: Trimwise first prefers a complete block, then a
+complete paragraph, sentence, or source line, and only then takes the longest exact source prefix
+that fits. For a closed code fence, it keeps the original opening and closing fence whenever the
+budget can hold that shell, removing body lines before cutting arbitrary text. A fence that was
+unclosed in the source remains unclosed; Trimwise does not invent missing syntax.
+
 ## Guarantees and limitations
 
-Trimwise guarantees that the measured result does not exceed the requested limit and that retained
-fragments come from the original source in source order.
+Trimwise is an extractive preprocessor: it chooses a smaller, higher-signal excerpt before you
+assemble an LLM prompt. It does not generate a summary or rewrite the source.
 
-It deliberately does not:
+### What you can rely on
 
-- Summarize, paraphrase, or combine distant facts into a new sentence.
-- Guarantee factual diversity; MMR similarity is only a redundancy proxy.
-- Load an embedding model for the default structural or lexical paths.
-- Fill a query-aware budget with unrelated text merely because space remains.
-- Parse JSON, chat transcripts, or source code with format-specific grammars.
+- **A hard budget ceiling.** The final result is measured with the requested token, word, or
+  character counter and never exceeds `limit`. Text that already fits is returned byte-for-byte
+  unchanged.
+- **Source-faithful excerpts.** Selected fragments are copied verbatim and emitted in their
+  original order. Trimwise may add the configured omission marker and minimal separators around
+  skipped ranges, but only when they fit; retained source text takes priority.
+- **Document-wide coverage without fixed slices.** Structural trimming ranks complete Markdown
+  blocks and plain-text sentences or lines, protects useful opening and closing context when it
+  fits, and spreads attention across sections. It does not use a fixed ratio such as 50/25/25.
+- **Query-focused selection.** Lexical mode favors exact terms with BM25; semantic mode finds
+  related meaning; hybrid mode combines normalized lexical and semantic scores, using RRF only
+  when those scores cannot be blended reliably. MMR then favors relevant passages that are less
+  repetitive than what is already selected.
+- **A ceiling, not a fill target.** Query-aware trimming bounds the candidate pool around the
+  strongest relevance drop and may return fewer tokens than requested instead of adding every
+  passage that could still fit.
+- **No surprise model work.** `auto` uses structural trimming without a query and lexical trimming
+  with one. Embeddings run only when you explicitly request `semantic` or `hybrid`; your callback
+  takes precedence over Trimwise-managed FastEmbed.
 
-A single unpunctuated source line has no smaller complete structural unit, so very small limits can
-still require prefix truncation. At extreme compression ratios, an abstractive or trained
-compressor may preserve more meaning per token, but it gives up Trimwise's exact-source guarantee.
+### Where the guarantee stops
+
+- **Extraction is not compression.** Trimwise cannot paraphrase a long sentence, merge distant
+  facts, resolve contradictions, or synthesize a shorter answer. It can only retain or omit source
+  fragments.
+- **Relevance is not correctness or completeness.** BM25, embeddings, and document centrality are
+  ranking signals. They can miss important context, and omissions can change how an excerpt is
+  interpreted even though every retained fragment is genuine source text.
+- **Less repetition is not factual diversity.** MMR compares lexical or embedding similarity, not
+  atomic claims. The same fact written differently can appear diverse, while different facts using
+  similar language can suppress one another.
+- **Markdown awareness is not format-specific understanding.** JSON, chat transcripts, and source
+  code are accepted as text, but v1 does not understand their schemas, speakers, syntax trees, or
+  other format-specific relationships.
+- **Some text is indivisible.** Trimwise normally falls back through complete paragraphs,
+  sentences, and source lines. If the strongest candidate is one unpunctuated line and the budget
+  is smaller than that line, the final fallback is an exact fitting source prefix.
+
+At extreme compression ratios, a trained token compressor or abstractive model may preserve more
+meaning per token. The tradeoff is that it can alter wording or introduce generated claims;
+Trimwise instead prioritizes predictable budgets, traceable excerpts, and exact source text.
 
 ## Project
 

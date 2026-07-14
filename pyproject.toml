@@ -48,8 +48,8 @@ dev = [
 ]
 
 [project.urls]
-Source = "https://github.com/aakashH242/trimwise"
-Issues = "https://github.com/aakashH242/trimwise/issues"
+Source = "https://github.com/tenwritehq/trimwise"
+Issues = "https://github.com/tenwritehq/trimwise/issues"
 
 [tool.mypy]
 python_version = "3.12"
