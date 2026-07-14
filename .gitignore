@@ -218,3 +218,9 @@ __marimo__/
 .streamlit/secrets.toml
 
 .consequences/
+.keys
+
+.consequences/
+
+# MkDocs build output
+site/

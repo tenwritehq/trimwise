@@ -1,0 +1,57 @@
+site_name: Trimwise
+site_description: High-signal text trimming for better LLM prompts.
+site_url: !ENV READTHEDOCS_CANONICAL_URL
+repo_url: https://github.com/tenwritehq/trimwise
+repo_name: tenwritehq/trimwise
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+theme:
+  name: shadcn
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - How it works: how-it-works.md
+  - Strategies: strategies.md
+  - Semantic models and async: semantic-and-async.md
+  - Configuration and API: configuration-and-api.md
+  - Guarantees and limitations: guarantees-and-limitations.md
+  - Research foundations: research-foundations.md
+  - API reference: api-reference.md
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      fallback_to_build_date: true
+      strict: false
+  - mkdocstrings:
+      enable_inventory: true
+      handlers:
+        python:
+          paths:
+            - src
+          inventories:
+            - https://docs.python.org/3/objects.inv
+          options:
+            docstring_style: google
+            members_order: source
+            separate_signature: true
+            show_root_full_path: false
+            show_root_heading: true
+            show_signature_annotations: true
+            show_source: true
+            signature_crossrefs: true
+  - minify:
+      minify_html: true
+
+hooks:
+  - docs/hooks.py
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - toc:
+      permalink: true

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from itertools import islice
 from typing import TYPE_CHECKING
 
 import tiktoken
@@ -84,15 +85,21 @@ class Measurer:
         """
         if limit < 0:
             return ""
-        if self.count(text) <= limit:
-            return text
         if self.unit is BudgetUnit.CHARACTERS:
+            if len(text) <= limit:
+                return text
             return text[:limit]
         if self.unit is BudgetUnit.WORDS:
-            matches = list(re.finditer(r"\S+(?:\s+|$)", text))
-            return text[: matches[limit - 1].end()] if limit else ""
+            if self.count(text) <= limit:
+                return text
+            if not limit:
+                return ""
+            match = next(islice(re.finditer(r"\S+(?:\s+|$)", text), limit - 1, limit))
+            return text[: match.end()]
         if self._token_counter is None:
             return self._fitting_encoded_prefix(text, limit)
+        if self.count(text) <= limit:
+            return text
         return self._fitting_scanned_prefix(text, limit)
 
     def _fitting_encoded_prefix(self, text: str, limit: int) -> str:
@@ -107,6 +114,8 @@ class Measurer:
         """
         encoding = self._get_encoding()
         tokens = encoding.encode(text, disallowed_special=())
+        if len(tokens) <= limit:
+            return text
         decoded, offsets = encoding.decode_with_offsets(tokens)
         if decoded != text:
             return self._fitting_scanned_prefix(text, limit)

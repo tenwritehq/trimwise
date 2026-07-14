@@ -139,6 +139,12 @@ def test_measurer_prefix_handles_negative_and_fitting_limits() -> None:
     assert measurer.fitting_prefix("abc", 3) == "abc"
 
 
+def test_word_prefix_preserves_whitespace_after_the_last_fitting_word() -> None:
+    """Stop at the requested word while retaining its exact trailing whitespace."""
+    measurer = Measurer(BudgetUnit.WORDS, "o200k_base", None)
+    assert measurer.fitting_prefix("one  two\nthree four", 2) == "one  two\n"
+
+
 def test_token_prefix_handles_nonmonotonic_token_counts() -> None:
     """Find the longest prefix even when appending text reduces its token count."""
     measurer = Measurer(BudgetUnit.TOKENS, "o200k_base", None)

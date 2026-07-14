@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import replace
 
 import numpy as np
@@ -12,6 +13,7 @@ from trimwise.models import BudgetUnit
 from trimwise.ranking import (
     _RRF_K,
     CandidateRanking,
+    _bm25_scores,
     _contextual_ranking_texts,
     _minmax,
     _rank_positions,
@@ -23,7 +25,13 @@ from trimwise.ranking import (
 )
 from trimwise.segmentation import Segment
 from trimwise.semantic import _SemanticVectors
-from trimwise.trimmer import _fill_section_shares, _new_selection_state, _SelectionContext
+from trimwise.trimmer import (
+    _fill_remaining,
+    _fill_section_shares,
+    _new_selection_state,
+    _SelectionContext,
+    _SelectionState,
+)
 
 
 def _segments(*texts: str) -> list[Segment]:
@@ -77,6 +85,31 @@ def test_bm25_ranks_exact_query_evidence_first() -> None:
     segments = _segments("cats sleep", "Zephyr launched Tuesday", "unrelated prose")
     ranking = rank_lexical(segments, "Zephyr launch", _measurer())
     assert ranking.primary.index(max(ranking.primary)) == 1
+
+
+def test_bm25_materializes_query_terms_once() -> None:
+    """Reuse one query-term set across all candidate documents."""
+
+    class CountingQuery(list[int]):
+        """Count how often BM25 iterates the query tokens."""
+
+        def __init__(self, values: list[int]) -> None:
+            """Store query tokens and initialize the iteration count.
+
+            Args:
+                values: Query token identifiers.
+            """
+            super().__init__(values)
+            self.iterations = 0
+
+        def __iter__(self) -> Iterator[int]:
+            """Count and delegate one iteration over query tokens."""
+            self.iterations += 1
+            return super().__iter__()
+
+    query = CountingQuery([1, 2, 3])
+    _bm25_scores([[1], [2], [3]], query)
+    assert query.iterations == 1
 
 
 def test_contextual_ranking_texts_keep_the_candidate_distinct() -> None:
@@ -239,6 +272,48 @@ def test_section_shares_skip_ranking_when_no_unit_fits(
     monkeypatch.setattr(CandidateRanking, "next_index", reject_ranking)
     _fill_section_shares(state)
     assert state.remaining == {0, 1}
+
+
+def test_global_fill_uses_linear_best_candidate_scan_when_candidates_fit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Avoid sorting every remaining candidate after each accepted unit.
+
+    Args:
+        monkeypatch: Pytest attribute replacement helper.
+    """
+
+    def reject_sorting(*args: object) -> list[int]:
+        """Fail if the all-fitting path sorts candidates.
+
+        Args:
+            *args: Ignored ranking call arguments.
+
+        Raises:
+            AssertionError: Always, because each best candidate is accepted.
+        """
+        raise AssertionError("all-fitting selection sorted remaining candidates")
+
+    def accept(state: _SelectionState, index: int) -> bool:
+        """Remove one accepted candidate from the synthetic selection state.
+
+        Args:
+            state: Mutable selection state under test.
+            index: Best remaining candidate.
+
+        Returns:
+            Always ``True`` because every synthetic candidate fits.
+        """
+        state.remaining.remove(index)
+        return True
+
+    segments = _segments("a", "b", "c")
+    ranking = CandidateRanking((1.0, 0.9, 0.8), (1.0, 0.9, 0.8), lambda left, right: 0.0)
+    context = _SelectionContext("abc", segments, ranking, _measurer(), 3, "...", 0.7)
+    state = _new_selection_state(context)
+    monkeypatch.setattr(CandidateRanking, "ordered_indexes", reject_sorting)
+    _fill_remaining(state, accept)
+    assert not state.remaining
 
 
 def test_semantic_ranking_uses_query_cosine() -> None:

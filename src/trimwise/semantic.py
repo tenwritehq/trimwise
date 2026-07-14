@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import gc
 import threading
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass
 from importlib import import_module
+from itertools import islice
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, cast
 
 from trimwise.models import SemanticBackendError, TrimConfig
@@ -185,7 +185,7 @@ def normalize_callback_output(
     """
     try:
         query_vector, passage_output = output
-        passage_vectors = list(passage_output)
+        passage_vectors = list(islice(passage_output, expected_passage_count + 1))
         if len(passage_vectors) != expected_passage_count:
             raise ValueError("embedding callback returned an unexpected vector count")
         return _normalize_vectors(query_vector, passage_vectors)
@@ -266,13 +266,10 @@ class SemanticEmbedder:
             SemanticBackendError: If loading or inference fails.
         """
         with self._lock:
-            try:
-                model = self._get_model()
-                query_vector = self._embed_query(model, query)
-                passage_vectors = self._embed_passages(model, passages)
-                return self._normalize_vectors(query_vector, passage_vectors)
-            finally:
-                gc.collect()
+            model = self._get_model()
+            query_vector = self._embed_query(model, query)
+            passage_vectors = self._embed_passages(model, passages)
+            return self._normalize_vectors(query_vector, passage_vectors)
 
     def _get_model(self) -> _EmbeddingModel:
         """Load FastEmbed and initialize the configured model once.
@@ -322,7 +319,7 @@ class SemanticEmbedder:
             SemanticBackendError: If query inference returns no usable vector.
         """
         try:
-            vectors = list(model.query_embed(query))
+            vectors = list(islice(model.query_embed(query), 2))
             if len(vectors) != 1:
                 raise ValueError("query_embed must return exactly one vector")
             return vectors[0]
@@ -351,9 +348,12 @@ class SemanticEmbedder:
         """
         try:
             vectors = list(
-                model.passage_embed(
-                    passages,
-                    batch_size=self._config.embedding_batch_size,
+                islice(
+                    model.passage_embed(
+                        passages,
+                        batch_size=self._config.embedding_batch_size,
+                    ),
+                    len(passages) + 1,
                 )
             )
             if len(vectors) != len(passages):

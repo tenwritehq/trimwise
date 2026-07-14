@@ -104,8 +104,24 @@ Keep each responsibility in its existing file. Generated folders such as `dist/`
 - `LICENSE`: contains the MIT license for Trimwise.
 - `README.md`: explains installation, public usage, strategies, configuration, and releases.
 - `ROADMAP.md`: records deliberately deferred ideas that need evidence before implementation.
+- `.readthedocs.yaml`: tells Read the Docs how to build and publish the MkDocs site.
+- `mkdocs.yml`: defines the documentation theme, navigation, plugins, source links, and API output.
 - `plan.md`: preserves the detailed Trimwise v1 implementation and acceptance plan.
 - `pyproject.toml`: defines Flit packaging, dependencies, Python support, and tool configuration.
+
+### Documentation
+
+- `docs/index.md`: introduces Trimwise and routes readers to the appropriate documentation.
+- `docs/getting-started.md`: covers installation, first trims, prompt assembly, and common choices.
+- `docs/strategies.md`: explains automatic, structural, lexical, semantic, and hybrid behavior.
+- `docs/semantic-and-async.md`: covers embedding callbacks, FastEmbed, concurrency, and async use.
+- `docs/configuration-and-api.md`: documents configuration fields, call arguments, and results.
+- `docs/how-it-works.md`: describes segmentation, ranking, selection, composition, and fallback.
+- `docs/guarantees-and-limitations.md`: separates hard guarantees from heuristic behavior.
+- `docs/research-foundations.md`: maps published methods to the exact parts Trimwise implements.
+- `docs/api-reference.md`: generates the six-object public API reference from Python source.
+- `docs/hooks.py`: reads the package version from `pyproject.toml` for MkDocs pages and titles.
+- `docs/requirements.txt`: pins the isolated documentation build dependencies.
 
 ### GitHub automation
 
