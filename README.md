@@ -43,6 +43,36 @@ Trimwise is designed for prompt assembly:
 - **Use research-grounded selection.** Trimwise combines BM25, centroid salience, sentence
   embeddings, score fusion, MMR, and adaptive evidence selection.
 
+## How Trimwise compares with prompt compressors
+
+Trimwise and model-based prompt compressors shorten text at different levels. Trimwise chooses
+complete source fragments before prompt assembly. Methods such as LLMLingua can remove individual
+tokens from an already assembled prompt, which can achieve much denser compression but may leave
+text that is harder for people to read or trace.
+
+| Approach | What it keeps or removes | Extra compression model | Best fit |
+| --- | --- | --- | --- |
+| Prefix slicing | Keeps only the beginning | No | Lowest possible overhead when missing later evidence is acceptable |
+| Trimwise | Selects complete source blocks, sentences, or lines and restores source order | No for structural or lexical use | Readable, source-backed excerpts with an exact final budget |
+| [LLMLingua](https://aclanthology.org/2023.emnlp-main.825/) family | Removes tokens throughout a prompt; LongLLMLingua also uses the query and long-context position | Yes | Aggressive compression when downstream model performance matters more than human-readable excerpts |
+| [Selective Context](https://arxiv.org/abs/2310.06201) | Removes low-self-information tokens, phrases, or sentences | Yes | Pruning predictable language using a causal language model |
+| [RECOMP](https://proceedings.iclr.cc/paper_files/paper/2024/hash/bda88ed2892f5e61c9a9bf215c566913-Abstract-Conference.html) | Selects sentences or generates a summary from retrieved documents | Yes, with trained compressors | Compressing RAG results for a downstream task, including abstractive synthesis when allowed |
+
+The LLMLingua family can preserve more task-relevant information per token at aggressive ratios.
+Its remaining tokens still come from the prompt, but complete sentence and block boundaries are not
+preserved. RECOMP's extractive path keeps selected sentences; its abstractive path can combine
+information across documents but no longer returns only original wording.
+
+Choose Trimwise when evidence must stay readable, source fragments must remain verbatim and ordered,
+or adding another compression model is undesirable. Choose a model-based compressor when maximum
+compression density is more important and you can evaluate its effect on your own downstream task.
+The methods can also be chained: select broad evidence with Trimwise, then apply token-level
+compression. After the second step, Trimwise's whole-fragment and source-layout guarantees no
+longer describe the final prompt.
+
+See the detailed [research comparison](https://trimwise.readthedocs.io/en/latest/research-foundations/#how-trimwise-compares-with-model-based-compression)
+for the differences among LLMLingua, LongLLMLingua, LLMLingua-2, Selective Context, and RECOMP.
+
 ## Installation
 
 Trimwise supports Python 3.10 through 3.14.

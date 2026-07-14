@@ -227,22 +227,101 @@ When no complete candidate fits, Trimwise progressively tries smaller complete u
 an exact fitting source prefix. This guarantees a usable result under tiny limits, although the
 last fallback cannot preserve document-wide meaning when the source offers no smaller boundaries.
 
-## Why Trimwise remains extractive
+## How Trimwise compares with model-based compression
 
-Language-model compressors and abstractive summarizers can sometimes express more information in
-fewer tokens, especially at extreme compression ratios. They can also rewrite a number, remove a
-qualifier, change attribution, or combine distant claims into wording that never appeared in the
-source.
+There is no universally best context compressor. The useful choice depends on four questions:
 
-Trimwise makes the opposite tradeoff. It selects and arranges original fragments without
-paraphrasing them. This is useful when you need prompt evidence that is predictable, auditable,
-and safe to quote, or when running another model solely for compression would add unwanted latency,
-cost, or privacy exposure.
+1. Must the output remain readable to people?
+2. Must every retained fragment be traceable to exact source text?
+3. Can you run another language model or trained encoder during compression?
+4. Is maximum task performance at an aggressive compression ratio more important than preserving
+   complete source units?
 
-The tradeoff is real: Trimwise cannot synthesize two distant facts into one shorter sentence, and
-at very aggressive limits a trained compressor may preserve more answer-relevant information per
-token. Choose based on whether source fidelity or maximum compression density matters more for your
-application.
+| Method | Selection granularity | Compression model | Output relationship to the source | Main strength |
+| --- | --- | --- | --- | --- |
+| Prefix slicing | One continuous prefix | None | Exact prefix, but ignores everything later | Minimal overhead |
+| Trimwise | Markdown blocks, paragraphs, sentences, or lines | None for structural and lexical use; optional embeddings for semantic ranking | Exact retained fragments in source order, separated by affordable omission markers | Readable evidence with an exact measured ceiling |
+| [LLMLingua](https://aclanthology.org/2023.emnlp-main.825/) | Tokens, selected through a coarse-to-fine process | Small causal language model | Retained tokens come from the prompt, but complete sentences and blocks need not survive | Very high compression on the paper's evaluated tasks |
+| [LongLLMLingua](https://aclanthology.org/2024.acl-long.91/) | Query-aware document and token selection for long prompts | Small causal language model | Can reorder and compress prompt content around the question | Long-context relevance, position handling, and target-model efficiency |
+| [LLMLingua-2](https://aclanthology.org/2024.findings-acl.57/) | Token classification | Trained bidirectional encoder | Extractive at token level, without a complete-unit guarantee | Faster, task-agnostic learned compression |
+| [Selective Context](https://arxiv.org/abs/2310.06201) | Tokens, phrases, or sentences | Causal language model for self-information | Retains higher-information lexical units; readability depends on the chosen granularity | Removes language that the scoring model considers predictable |
+| [RECOMP](https://proceedings.iclr.cc/paper_files/paper/2024/hash/bda88ed2892f5e61c9a9bf215c566913-Abstract-Conference.html) | Selected sentences or generated multi-document summaries | Trained extractive or abstractive compressor | Extractive mode keeps sentences; abstractive mode synthesizes new wording | Task-trained compression of retrieved evidence |
+
+### The LLMLingua family
+
+The original LLMLingua uses a budget controller, coarse-to-fine scoring, and iterative token-level
+compression. Its paper reports up to 20x compression with little performance loss across its four
+evaluated datasets. Because it can remove tokens inside sentences, it can pack more surviving
+information into a tight prompt than a complete-fragment selector. The result may also be difficult
+for a person to read, even when it remains useful to the target LLM.
+
+LongLLMLingua adapts that approach to question-aware long-context prompts. It considers relevance
+and the position of key information, addressing cases where useful evidence is buried in a long
+context. The paper reports up to a 21.4% improvement on NaturalQuestions with about four times fewer
+tokens in GPT-3.5-Turbo, plus 1.4x-2.6x end-to-end acceleration for roughly 10,000-token prompts
+compressed by 2x-6x. These are paper results on specific models and benchmarks, not expected results
+for every prompt.
+
+LLMLingua-2 replaces causal-language-model surprisal with a learned token-classification objective.
+It distills training data from a larger model and uses a bidirectional encoder to decide which
+tokens survive. The paper reports 3x-6x faster compression than the compared prompt-compression
+methods and 1.6x-2.9x end-to-end latency acceleration at 2x-5x compression ratios.
+
+Compared with this family, Trimwise uses coarser units and cannot usually reach the same density at
+extreme compression ratios. Its benefit is that selected passages remain complete, readable source
+fragments; structural and lexical use require no compression model; and the final composed result
+is measured against the caller's exact budget. Trimwise has not been benchmarked head-to-head
+against the LLMLingua family, so it does not claim better downstream answer quality.
+
+### Selective Context
+
+Selective Context scores lexical units by self-information from a causal language model and removes
+the more predictable content. It can operate on tokens, phrases, or sentences; the paper found
+phrase-level selection strongest in its experiments. At 50% context reduction, the paper reports
+36% lower inference memory use and 32% lower inference time, with small average drops on its
+reported quality measures.
+
+This method is attractive when natural-language redundancy is the primary target. Trimwise instead
+uses document structure, query relevance, and representation-level diversity. It does not estimate
+language-model surprisal. In return, its core paths avoid a language model and preserve complete
+source units rather than relying on token- or phrase-level readability.
+
+### RECOMP
+
+RECOMP is designed for evidence produced by a retrieval system. It trains two alternatives: an
+extractive compressor that selects useful sentences and an abstractive compressor that synthesizes
+information across retrieved documents. Either compressor can return an empty string when the
+retrieved material does not help. The paper reports compression to as little as 6% of the retrieved
+text with minimal performance loss on its language-modeling and open-domain question-answering
+evaluations.
+
+RECOMP's extractive mode is the closest comparison to Trimwise because both can select complete
+sentences. The difference is purpose and training: RECOMP learns to optimize a downstream task over
+retrieved documents, while Trimwise applies deterministic general-purpose ranking to the string you
+already have. RECOMP's abstractive mode can combine distant facts much more densely, but its output
+is generated text rather than an exact set of source fragments.
+
+### Which tradeoff should you choose?
+
+Choose Trimwise when:
+
+- Evidence should remain readable, auditable, and easy to trace to its source.
+- Markdown sections, lists, tables, code fences, identifiers, and qualifications should stay intact.
+- You need an exact token, word, or character ceiling on the finished excerpt.
+- You want structural or query-aware lexical selection without another model.
+- You want to trim each source separately before assembling instructions and evidence into a prompt.
+
+Choose token- or model-based compression when:
+
+- Extreme compression matters more than complete sentences and blocks.
+- You can run and deploy the required compression model.
+- You can evaluate answer quality, faithfulness, and latency on your own tasks.
+- You want a learned compressor optimized for a particular target model or retrieval workflow.
+
+The approaches can be chained. Trimwise can first select readable evidence from across a very long
+source, after which LLMLingua-style compression can prune the smaller result. This may improve total
+compression, but the final output no longer has Trimwise's complete-fragment or source-layout
+guarantees.
 
 ## What “research-based” means for Trimwise
 
