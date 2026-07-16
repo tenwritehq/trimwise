@@ -1,3 +1,8 @@
+---
+title: "Trimwise: Source-Backed Text Trimming"
+description: Trimwise selects useful, source-backed text for LLM prompts while preserving wording, order, and exact token, word, or character limits. Learn how it works.
+---
+
 # Trimwise
 
 **Create compact, high-signal excerpts for LLM prompts without rewriting the source.**

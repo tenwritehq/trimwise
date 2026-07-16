@@ -1,6 +1,6 @@
 # Trimwise
 
-[![PyPI version](https://badge.fury.io/py/trimwise.svg)](https://pypi.org/project/trimwise/)
+[![PyPI version](https://img.shields.io/pypi/v/trimwise.svg)](https://pypi.org/project/trimwise/)
 
 **Keep the most useful parts of long text before adding it to an LLM prompt.**
 

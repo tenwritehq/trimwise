@@ -1,3 +1,8 @@
+---
+title: Trimwise Guarantees and Limitations
+description: Understand what Trimwise guarantees about source fidelity, order, budgets, fallbacks, and errors—and where its relevance heuristics need your evaluation.
+---
+
 # Guarantees and Limitations
 
 Trimwise is an extractive preprocessor for creating smaller evidence excerpts before prompt

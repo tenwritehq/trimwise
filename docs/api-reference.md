@@ -1,3 +1,8 @@
+---
+title: Trimwise Python API Reference Guide
+description: Browse the public Trimwise Python API, including trimming, configuration, results, strategies, budget units, and semantic backend errors.
+---
+
 # API Reference
 
 This page documents Trimwise **{{ trimwise_version }}** directly from its public Python source.
