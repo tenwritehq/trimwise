@@ -11,7 +11,7 @@ theme:
   name: shadcn
 
 nav:
-  - Home: index.md
+  - Introduction: index.md
   - Getting started: getting-started.md
   - How it works: how-it-works.md
   - Strategies: strategies.md
@@ -49,9 +49,16 @@ plugins:
 hooks:
   - docs/hooks.py
 
+extra_css:
+  - stylesheets/extra.css
+
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - fenced_code
+  - codehilite:
+      guess_lang: false
+      use_pygments: true
+      linenums: false
   - toc:
       permalink: true

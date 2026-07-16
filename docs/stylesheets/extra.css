@@ -1,0 +1,55 @@
+/*
+ * Use the complete middle column between the left navigation
+ * and the right-hand table of contents.
+ */
+main article {
+  max-width: none;
+  min-width: 0;
+  margin-inline: 0;
+  padding-inline: clamp(1rem, 2vw, 2.5rem);
+}
+
+/*
+ * Ensure generated code wrappers participate in normal document flow.
+ * The .highlight selector also protects blocks emitted by extensions
+ * other than the primary codehilite renderer.
+ */
+main article .codehilite,
+main article .highlight {
+  position: relative;
+  display: flow-root;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/*
+ * Keep long source lines inside the block instead of allowing them
+ * to widen, clip, or overlap the surrounding page.
+ */
+main article .codehilite pre,
+main article .highlight pre {
+  position: static;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  white-space: pre;
+  line-height: 1.55;
+}
+
+/*
+ * Leave room for the copy button in the top-right corner.
+ */
+main article .codehilite pre {
+  padding-right: 3.25rem;
+}
+
+main article .typography > p,
+main article .typography > ul,
+main article .typography > ol,
+main article .typography > blockquote {
+  max-width: 100ch;
+}
