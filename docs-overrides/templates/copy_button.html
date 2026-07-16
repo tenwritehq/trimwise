@@ -1,0 +1,178 @@
+<div
+  class="llm-page-actions"
+  data-llm-page-actions
+  data-markdown-url="{{ raw_markdown_url | url | e }}"
+>
+  <button
+    type="button"
+    class="llm-page-copy"
+    data-copy-page
+    aria-label="Copy this page as Markdown"
+  >
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <rect x="8" y="8" width="12" height="12" rx="2"></rect>
+      <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>
+    </svg>
+
+    <span data-copy-label>Copy page</span>
+  </button>
+
+  <details class="llm-page-menu">
+    <summary aria-label="More page actions" title="More page actions">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m6 9 6 6 6-6"></path>
+      </svg>
+    </summary>
+
+    <div class="llm-page-menu-content" role="menu">
+  <button type="button" data-copy-page role="menuitem">
+    <span class="llm-page-menu-icon" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="8" y="8" width="12" height="12" rx="2"></rect>
+        <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>
+      </svg>
+    </span>
+
+    <span class="llm-page-menu-label" data-copy-label>
+      Copy page
+    </span>
+  </button>
+
+  <a
+    href="{{ raw_markdown_url | url }}"
+    target="_blank"
+    rel="noopener noreferrer"
+    role="menuitem"
+  >
+    <span
+      class="llm-page-menu-icon llm-page-menu-icon-text"
+      aria-hidden="true"
+    >
+      MD
+    </span>
+
+    <span class="llm-page-menu-label">
+      View as Markdown
+
+      <svg
+        class="llm-external-icon"
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M15 4h5v5"></path>
+        <path d="M10 14 20 4"></path>
+        <path d="M20 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"></path>
+      </svg>
+    </span>
+  </a>
+
+  <a
+    href="#"
+    data-llm-target="chatgpt"
+    target="_blank"
+    rel="noopener noreferrer"
+    role="menuitem"
+  >
+    <span
+      class="llm-page-menu-icon llm-page-menu-icon-text"
+      aria-hidden="true"
+    >
+      GPT
+    </span>
+
+    <span class="llm-page-menu-label">
+      Open in ChatGPT
+
+      <svg
+        class="llm-external-icon"
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M15 4h5v5"></path>
+        <path d="M10 14 20 4"></path>
+        <path d="M20 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"></path>
+      </svg>
+    </span>
+  </a>
+
+  <a
+    href="#"
+    data-llm-target="claude"
+    target="_blank"
+    rel="noopener noreferrer"
+    role="menuitem"
+  >
+    <span
+      class="llm-page-menu-icon llm-page-menu-icon-text"
+      aria-hidden="true"
+    >
+      CL
+    </span>
+
+    <span class="llm-page-menu-label">
+      Open in Claude
+
+      <svg
+        class="llm-external-icon"
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M15 4h5v5"></path>
+        <path d="M10 14 20 4"></path>
+        <path d="M20 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"></path>
+      </svg>
+    </span>
+  </a>
+</div>
+  </details>
+</div>

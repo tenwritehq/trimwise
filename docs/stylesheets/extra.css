@@ -1,7 +1,4 @@
-/*
- * Use the complete middle column between the left navigation
- * and the right-hand table of contents.
- */
+/* Use the complete middle column between the left navigation and page TOC. */
 main article {
   max-width: none;
   min-width: 0;
@@ -9,11 +6,7 @@ main article {
   padding-inline: clamp(1rem, 2vw, 2.5rem);
 }
 
-/*
- * Ensure generated code wrappers participate in normal document flow.
- * The .highlight selector also protects blocks emitted by extensions
- * other than the primary codehilite renderer.
- */
+/* Keep generated code blocks inside the content column. */
 main article .codehilite,
 main article .highlight {
   position: relative;
@@ -23,10 +16,6 @@ main article .highlight {
   max-width: 100%;
 }
 
-/*
- * Keep long source lines inside the block instead of allowing them
- * to widen, clip, or overlap the surrounding page.
- */
 main article .codehilite pre,
 main article .highlight pre {
   position: static;
@@ -40,16 +29,225 @@ main article .highlight pre {
   line-height: 1.55;
 }
 
-/*
- * Leave room for the copy button in the top-right corner.
- */
 main article .codehilite pre {
   padding-right: 3.25rem;
 }
 
+/* Keep prose readable while allowing code and tables to use the full column. */
 main article .typography > p,
 main article .typography > ul,
 main article .typography > ol,
 main article .typography > blockquote {
   max-width: 100ch;
+}
+
+/* Keep Copy page, its dropdown trigger, and page navigation on one row. */
+article #page-header > div:last-child {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+/* Joined Copy page control. */
+article #page-header .llm-page-actions {
+  position: relative;
+  display: inline-flex;
+  flex-flow: row nowrap;
+  align-items: stretch;
+  width: max-content;
+  min-width: max-content;
+  flex: 0 0 auto;
+  font-size: 0.875rem;
+}
+
+article #page-header .llm-page-copy,
+article #page-header .llm-page-menu > summary {
+  box-sizing: border-box;
+  height: 2rem;
+  min-height: 2rem;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+article #page-header .llm-page-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0 0.7rem;
+  border-radius: 0.5rem 0 0 0.5rem;
+  white-space: nowrap;
+  font: inherit;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+}
+
+article #page-header .llm-page-copy:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+article #page-header .llm-page-menu {
+  position: relative;
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 2rem;
+}
+
+article #page-header .llm-page-menu > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0 0 0 -1px;
+  padding: 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  list-style: none;
+  line-height: 1;
+  cursor: pointer;
+}
+
+article #page-header .llm-page-menu > summary::marker {
+  content: "";
+}
+
+article #page-header .llm-page-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+article #page-header .llm-page-menu[open] > summary svg {
+  transform: rotate(180deg);
+}
+
+article #page-header .llm-page-copy:hover,
+article #page-header .llm-page-menu > summary:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+article #page-header .llm-page-copy:focus-visible,
+article #page-header .llm-page-menu > summary:focus-visible,
+article #page-header .llm-page-menu-content > button:focus-visible,
+article #page-header .llm-page-menu-content > a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+article #page-header .llm-page-menu > summary svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  transition: transform 120ms ease;
+}
+
+/* Floating action menu. */
+article #page-header .llm-page-menu-content {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 1000;
+  display: grid;
+  gap: 0.25rem;
+  width: 18rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow:
+    0 10px 30px rgb(0 0 0 / 0.14),
+    0 2px 8px rgb(0 0 0 / 0.08);
+}
+
+article #page-header .llm-page-menu-content > button,
+article #page-header .llm-page-menu-content > a {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 2.5rem;
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+article #page-header .llm-page-menu-content > button:hover,
+article #page-header .llm-page-menu-content > a:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  text-decoration: none;
+}
+
+article #page-header .llm-page-menu-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 550;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+article #page-header .llm-page-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  flex: 0 0 auto;
+}
+
+article #page-header .llm-page-menu-icon-text {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+article #page-header .llm-page-menu-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+article #page-header .llm-external-icon {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+
+@media (max-width: 640px) {
+  article #page-header .llm-page-copy [data-copy-label] {
+    display: none;
+  }
+
+  article #page-header .llm-page-copy {
+    padding-inline: 0.55rem;
+  }
+
+  article #page-header .llm-page-menu-content {
+    width: min(18rem, calc(100vw - 1rem));
+  }
 }

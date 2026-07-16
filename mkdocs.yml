@@ -9,6 +9,7 @@ docs_dir: docs
 
 theme:
   name: shadcn
+  custom_dir: docs-overrides
 
 nav:
   - Introduction: index.md
@@ -51,6 +52,9 @@ hooks:
 
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/llm-page-actions.js
 
 markdown_extensions:
   - admonition
