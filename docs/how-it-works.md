@@ -1,3 +1,8 @@
+---
+title: How Trimwise Selects Useful Text
+description: See how Trimwise measures input, maps source structure, ranks relevant passages, selects complementary evidence, and composes an exact-budget result.
+---
+
 # How Trimwise Works
 
 Trimwise treats truncation as evidence selection under a hard budget. It does not rewrite,

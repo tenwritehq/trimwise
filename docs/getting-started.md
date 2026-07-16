@@ -1,3 +1,8 @@
+---
+title: Trimwise Getting Started Guide
+description: Install Trimwise, create your first source-backed excerpt, choose a budget, and add query-aware or semantic trimming to an LLM prompt.
+---
+
 # Getting Started
 
 This guide takes you from installation to a prompt-ready excerpt. You will trim a document without

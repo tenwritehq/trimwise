@@ -1,3 +1,8 @@
+---
+title: "Trimwise Strategies: Structural to Hybrid"
+description: Compare Trimwise structural, lexical, semantic, and hybrid strategies to choose the right way to preserve useful evidence for each prompt.
+---
+
 # Choosing a Strategy
 
 A strategy controls how Trimwise estimates which source fragments are worth keeping. It does not

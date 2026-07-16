@@ -1,6 +1,6 @@
 site_name: Trimwise
 site_description: High-signal text trimming for better LLM prompts.
-site_url: !ENV READTHEDOCS_CANONICAL_URL
+site_url: !ENV [READTHEDOCS_CANONICAL_URL, https://trimwise.readthedocs.io/en/latest/]
 repo_url: https://github.com/tenwritehq/trimwise
 repo_name: tenwritehq/trimwise
 edit_uri: edit/main/docs/

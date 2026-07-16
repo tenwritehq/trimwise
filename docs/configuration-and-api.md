@@ -1,3 +1,8 @@
+---
+title: Trimwise Configuration and API Guide
+description: Learn the Trimwise API, budgets, strategies, callbacks, omission markers, validation rules, and configuration choices for reliable text trimming.
+---
+
 # Configuration and API Reference
 
 Trimwise exposes a deliberately small public API. Most applications need only `Trimmer` and the

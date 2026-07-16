@@ -1,3 +1,8 @@
+---
+title: Semantic and Async Trimming with Trimwise
+description: Use embedding callbacks or FastEmbed for meaning-based text selection, and learn how Trimwise handles async calls, validation, reuse, and failures.
+---
+
 # Semantic Models and Async Usage
 
 Semantic trimming helps when the query and the answer use different words. Hybrid trimming adds

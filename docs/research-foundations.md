@@ -1,3 +1,8 @@
+---
+title: Research Behind Trimwise Text Selection
+description: Explore the research ideas behind Trimwise, including BM25, embeddings, MMR, adaptive evidence selection, and extractive prompt compression.
+---
+
 # Research Foundations
 
 Trimwise uses established ranking and extractive-summarization methods to answer a practical
