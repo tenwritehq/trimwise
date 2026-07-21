@@ -65,6 +65,7 @@ assert result.trimmed is False
 ```
 
 Spaces, tabs, line endings, and Markdown syntax remain unchanged on this path.
+For a nonempty unchanged input, `result.spans` contains one range from zero through `len(source)`.
 
 ### Retained fragments come from the source
 
@@ -367,8 +368,11 @@ Trimwise deliberately leaves several decisions with the application:
 | Security | Treat selected source text as untrusted and enforce tool permissions separately |
 | Tokenizer alignment | Supply a custom counter when the default encoding does not match the target model |
 
-`TrimResult` intentionally does not expose source IDs, selected spans, scores, or embeddings in v1.
-Keep provenance alongside each input before trimming several sources.
+`TrimResult.spans` exposes ordered Python-string ranges for retained source text, but it does not
+include source IDs, scores, or embeddings. Starts are inclusive, ends are exclusive, and adjacent
+ranges are merged. Overlapping ranges are never returned because candidates do not overlap.
+Generated omission markers and separators have no span. Keep document identity alongside each
+input before trimming several sources.
 
 ## How to evaluate Trimwise for your application
 

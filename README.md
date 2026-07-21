@@ -118,11 +118,14 @@ result = Trimmer().trim(
 print(result.text)
 print(result.output_count)  # Always <= 24
 print(result.strategy)      # Strategy.LEXICAL: auto resolved from the query
+print(result.spans)         # Original-input Python-string offsets
 ```
 
 `auto` uses structural coverage when no query is supplied and fast lexical BM25 when a query is
 present. Neither path loads an embedding model. If the original input already fits, Trimwise
-returns it byte-for-byte unchanged.
+returns it byte-for-byte unchanged. `result.spans` contains ordered, end-exclusive ranges into the
+original Python string, so `document[span.start:span.end]` recovers each retained source fragment.
+Generated omission markers and separators are not included in those ranges.
 
 ## Main use case: trim each source before building the prompt
 

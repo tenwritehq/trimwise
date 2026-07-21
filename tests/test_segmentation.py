@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from trimwise import TrimConfig, Trimmer
+from trimwise import SourceSpan, TrimConfig, Trimmer
 from trimwise.measurement import Measurer
 from trimwise.models import BudgetUnit
 from trimwise.segmentation import (
@@ -104,6 +104,26 @@ def test_closed_fence_fallback_remains_balanced() -> None:
     assert result.text.startswith("```python\n")
     assert "\n```" in result.text[len("```python\n") :]
     assert result.output_count <= 35
+    closing = "```\n"
+    retained_prefix = result.text[: -len(closing)]
+    assert result.spans == (
+        SourceSpan(0, len(retained_prefix)),
+        SourceSpan(len(source) - len(closing), len(source)),
+    )
+
+
+def test_closed_fence_shell_has_two_source_spans() -> None:
+    """Map a retained opening and closing fence around an omitted body."""
+    opening = "```python\n"
+    closing = "```\n"
+    source = opening + "one oversized body line" * 10 + "\n" + closing
+    config = TrimConfig(omission_marker="an omission marker that cannot fit")
+    result = Trimmer(config).trim(source, len(opening + closing), unit="characters")
+    assert result.text == opening + closing
+    assert result.spans == (
+        SourceSpan(0, len(opening)),
+        SourceSpan(len(source) - len(closing), len(source)),
+    )
 
 
 def test_unclosed_fence_is_not_artificially_closed() -> None:
@@ -179,6 +199,7 @@ def test_fallback_prefers_a_complete_sentence() -> None:
     config = TrimConfig(omission_marker="an omission marker that cannot fit")
     result = Trimmer(config).trim(source, 30, unit="characters")
     assert result.text == "Keep this sentence. "
+    assert result.spans == (SourceSpan(0, len(result.text)),)
 
 
 def test_fallback_prefers_a_complete_source_line() -> None:
@@ -241,3 +262,7 @@ def test_closed_fence_fallback_prefers_complete_body_lines() -> None:
     config = TrimConfig(omission_marker="an omission marker that cannot fit")
     result = Trimmer(config).trim(source, 18, unit="characters")
     assert result.text == "```\nshort\n```\n"
+    assert result.spans == (
+        SourceSpan(0, len("```\nshort\n")),
+        SourceSpan(len(source) - len("```\n"), len(source)),
+    )

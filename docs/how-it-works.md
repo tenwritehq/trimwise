@@ -342,6 +342,7 @@ Ranking order never becomes output order. For every proposed addition, Trimwise:
 4. Measures that complete proposal.
 5. Rejects the addition if retained content and required separators exceed the limit.
 6. Otherwise, tries optional omission markers one gap at a time in source-gap order.
+7. Carries the retained original-input ranges into the final result.
 
 This trial composition accounts for the actual cost of headings, separators, and markers instead
 of estimating candidate cost in isolation.
@@ -432,7 +433,12 @@ limit         caller-defined ceiling
 unit          concrete budget unit
 strategy      resolved concrete strategy
 trimmed       whether output text differs from input
+spans         ordered original-input ranges retained in the output
 ```
+
+Span offsets follow Python string slicing: starts are inclusive and ends are exclusive. Adjacent
+source-backed ranges are merged; overlapping ranges cannot arise from the nonoverlapping source
+candidates. Generated omission markers and minimal separators have no source span.
 
 The guarantee applies to `result.text`, not to the larger prompt assembled around it. Source labels,
 instructions, examples, tool schemas, separators, and model output still need their own context
