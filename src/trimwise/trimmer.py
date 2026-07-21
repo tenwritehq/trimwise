@@ -10,7 +10,7 @@ from itertools import pairwise
 from typing import cast
 
 from trimwise.measurement import Measurer, TokenCounter
-from trimwise.models import BudgetUnit, Strategy, TrimConfig, TrimResult
+from trimwise.models import BudgetUnit, SourceSpan, Strategy, TrimConfig, TrimResult
 from trimwise.ranking import (
     CandidateRanking,
     _contextual_ranking_texts,
@@ -86,6 +86,14 @@ class _RankingRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class _ComposedOutput:
+    """Pair composed text with its maximal original-input ranges."""
+
+    text: str
+    spans: tuple[SourceSpan, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class _SelectionContext:
     """Provide immutable source, budget, and ranking data to selection."""
 
@@ -106,7 +114,7 @@ class _SelectionState:
     remaining: set[int]
     maximum_similarities: Sequence[float]
     selected: set[int] = field(default_factory=set)
-    output: str = ""
+    output: _ComposedOutput = field(default_factory=lambda: _ComposedOutput("", ()))
 
     def track_mmr_selection(self, selected_index: int) -> None:
         """Update remaining candidates after one MMR selection.
@@ -288,9 +296,13 @@ class Trimmer:
         )
         input_count = measurer.count(arguments.text)
         if arguments.limit == 0:
-            return _result("", input_count, request, resolved_strategy, measurer)
+            return _result(
+                _ComposedOutput("", ()), input_count, request, resolved_strategy, measurer
+            )
         if input_count <= arguments.limit:
-            return _result(arguments.text, input_count, request, resolved_strategy, measurer)
+            spans = (SourceSpan(0, len(arguments.text)),) if arguments.text else ()
+            output = _ComposedOutput(arguments.text, spans)
+            return _result(output, input_count, request, resolved_strategy, measurer)
 
         segments = segment_text(arguments.text)
         if resolved_strategy is Strategy.STRUCTURAL:
@@ -513,7 +525,7 @@ def _validate_request(request: _TrimRequest) -> None:
 
 
 def _result(
-    output: str,
+    output: _ComposedOutput,
     input_count: int,
     request: _TrimRequest,
     strategy: Strategy,
@@ -522,7 +534,7 @@ def _result(
     """Measure and construct a result while enforcing the hard limit.
 
     Args:
-        output: Composed output text.
+        output: Composed output and original-input ranges.
         input_count: Measured original size.
         request: Validated public request.
         strategy: Resolved concrete strategy.
@@ -534,17 +546,18 @@ def _result(
     Raises:
         RuntimeError: If internal composition exceeded the requested limit.
     """
-    output_count = measurer.count(output)
+    output_count = measurer.count(output.text)
     if output_count > request.limit:
         raise RuntimeError("internal composition exceeded the requested limit")
     return TrimResult(
-        output,
+        output.text,
         input_count,
         output_count,
         request.limit,
         request.unit,
         strategy,
-        output != request.text,
+        output.text != request.text,
+        output.spans,
     )
 
 
@@ -593,7 +606,7 @@ def _expand_structural_plaintext(segments: list[Segment]) -> list[Segment]:
     ]
 
 
-def _select_structural(context: _SelectionContext) -> str | None:
+def _select_structural(context: _SelectionContext) -> _ComposedOutput | None:
     """Select anchors, per-section evidence, then global structural evidence.
 
     Args:
@@ -609,7 +622,7 @@ def _select_structural(context: _SelectionContext) -> str | None:
     return state.output if state.selected else None
 
 
-def _select_query_aware(context: _SelectionContext) -> str | None:
+def _select_query_aware(context: _SelectionContext) -> _ComposedOutput | None:
     """Select adaptively bounded evidence and attach its heading when affordable.
 
     Args:
@@ -664,7 +677,7 @@ def _fill_section_shares(state: _SelectionState) -> None:
     sections = sorted({segment.section for segment in state.context.segments})
     if not sections:
         return
-    available = state.context.limit - state.context.measurer.count(state.output)
+    available = state.context.limit - state.context.measurer.count(state.output.text)
     share = max(0, available // len(sections))
     costs = {
         index: state.context.measurer.count(state.context.segments[index].text)
@@ -776,7 +789,7 @@ def _accept_indices(state: _SelectionState, main_index: int, trial: set[int]) ->
     return True
 
 
-def _compose(context: _SelectionContext, indexes: set[int]) -> str | None:
+def _compose(context: _SelectionContext, indexes: set[int]) -> _ComposedOutput | None:
     """Compose source-ordered fragments and add every affordable gap marker.
 
     Args:
@@ -787,12 +800,12 @@ def _compose(context: _SelectionContext, indexes: set[int]) -> str | None:
         Fitting composition, or ``None`` when retained content alone is too large.
     """
     if not indexes:
-        return ""
+        return _ComposedOutput("", ())
     segments = [context.segments[index] for index in sorted(indexes)]
     pieces = _output_pieces(context, segments)
     current = [piece.fallback for piece in pieces]
-    output = "".join(current)
-    if context.measurer.count(output) > context.limit:
+    text = "".join(current)
+    if context.measurer.count(text) > context.limit:
         return None
     for index, piece in enumerate(pieces):
         if piece.marked is None:
@@ -801,10 +814,35 @@ def _compose(context: _SelectionContext, indexes: set[int]) -> str | None:
         current[index] = piece.marked
         candidate = "".join(current)
         if context.measurer.count(candidate) <= context.limit:
-            output = candidate
+            text = candidate
         else:
             current[index] = fallback
-    return output
+    return _ComposedOutput(text, _source_spans(context.source, segments))
+
+
+def _source_spans(source: str, segments: list[Segment]) -> tuple[SourceSpan, ...]:
+    """Combine retained segments across source whitespace copied into the output.
+
+    Args:
+        source: Original input string.
+        segments: Retained source segments in order.
+
+    Returns:
+        Maximal ordered source-backed ranges.
+    """
+    first = segments[0]
+    start = first.start if _NON_WHITESPACE_PATTERN.search(source, 0, first.start) else 0
+    end = first.end
+    spans: list[SourceSpan] = []
+    for segment in segments[1:]:
+        if _NON_WHITESPACE_PATTERN.search(source, end, segment.start):
+            spans.append(SourceSpan(start, end))
+            start = segment.start
+        end = segment.end
+    if not _NON_WHITESPACE_PATTERN.search(source, end):
+        end = len(source)
+    spans.append(SourceSpan(start, end))
+    return tuple(spans)
 
 
 def _output_pieces(
@@ -939,7 +977,7 @@ def _leading_newlines(text: str) -> int:
     return min(2, len(text) - len(text.lstrip("\n")))
 
 
-def _fallback_output(context: _SelectionContext) -> str:
+def _fallback_output(context: _SelectionContext) -> _ComposedOutput:
     """Retain a measurable prefix of the strongest indivisible candidate.
 
     Args:
@@ -949,19 +987,19 @@ def _fallback_output(context: _SelectionContext) -> str:
         Fitting source-derived fragment, possibly empty.
     """
     if not context.segments:
-        return ""
+        return _ComposedOutput("", ())
     index = max(
         range(len(context.segments)),
         key=lambda candidate: (context.ranking.relevance[candidate], -candidate),
     )
     segment = context.segments[index]
-    fragment = _fitting_segment_text(context, segment)
-    if not fragment:
-        return ""
+    fragment = _fitting_segment(context, segment)
+    if not fragment.text:
+        return _ComposedOutput("", ())
     return _add_fallback_markers(context, segment, fragment)
 
 
-def _fitting_segment_text(context: _SelectionContext, segment: Segment) -> str:
+def _fitting_segment(context: _SelectionContext, segment: Segment) -> _ComposedOutput:
     """Shrink one segment while retaining balanced closed fences where possible.
 
     Args:
@@ -969,25 +1007,52 @@ def _fitting_segment_text(context: _SelectionContext, segment: Segment) -> str:
         segment: Strongest complete candidate.
 
     Returns:
-        Fitting source-derived segment text.
+        Fitting source-derived text and original-input ranges.
     """
     if segment.kind != "fence":
-        return _fitting_plain_prefix(context, segment.text)
+        return _fitting_segment_prefix(context, segment)
     lines = segment.text.splitlines(keepends=True)
     if len(lines) < 2 or not _matching_fences(lines[0], lines[-1]):
-        return _fitting_plain_prefix(context, segment.text)
+        return _fitting_segment_prefix(context, segment)
     opening = lines[0]
     closing = lines[-1]
     shell = opening + closing
     if context.measurer.count(shell) > context.limit:
-        return _fitting_plain_prefix(context, segment.text)
+        return _fitting_segment_prefix(context, segment)
     body = "".join(lines[1:-1])
     endpoints = _line_endpoints(body)
     for end in reversed(endpoints):
         candidate = opening + body[:end] + closing
         if context.measurer.count(candidate) <= context.limit:
-            return candidate
-    return shell
+            prefix_end = segment.start + len(opening) + end
+            spans = (
+                SourceSpan(segment.start, prefix_end),
+                SourceSpan(segment.end - len(closing), segment.end),
+            )
+            return _ComposedOutput(candidate, spans)
+    spans = (
+        SourceSpan(segment.start, segment.start + len(opening)),
+        SourceSpan(segment.end - len(closing), segment.end),
+    )
+    return _ComposedOutput(shell, spans)
+
+
+def _fitting_segment_prefix(
+    context: _SelectionContext,
+    segment: Segment,
+) -> _ComposedOutput:
+    """Fit one exact segment prefix and adjust its source range.
+
+    Args:
+        context: Measurement and limit settings.
+        segment: Oversized source candidate.
+
+    Returns:
+        Fitting prefix and its original-input range.
+    """
+    text = _fitting_plain_prefix(context, segment.text)
+    spans = (SourceSpan(segment.start, segment.start + len(text)),) if text else ()
+    return _ComposedOutput(text, spans)
 
 
 def _fitting_plain_prefix(context: _SelectionContext, text: str) -> str:
@@ -1085,26 +1150,28 @@ def _matching_fences(opening: str, closing: str) -> bool:
 def _add_fallback_markers(
     context: _SelectionContext,
     segment: Segment,
-    fragment: str,
-) -> str:
+    fragment: _ComposedOutput,
+) -> _ComposedOutput:
     """Add affordable leading and trailing markers around fallback content.
 
     Args:
         context: Source, marker, and measurement settings.
         segment: Candidate from which the fragment was derived.
-        fragment: Fitting candidate content.
+        fragment: Fitting candidate content and source ranges.
 
     Returns:
         Fitting fragment with every affordable outer omission marker.
     """
-    output = fragment
+    output = fragment.text
     if context.source[: segment.start].strip():
         candidate = context.marker + _newlines_before(output) + output
         if context.measurer.count(candidate) <= context.limit:
             output = candidate
-    has_trailing_omission = fragment != segment.text or bool(context.source[segment.end :].strip())
+    has_trailing_omission = fragment.text != segment.text or bool(
+        context.source[segment.end :].strip()
+    )
     if has_trailing_omission:
         candidate = output + _newlines_after(output) + context.marker
         if context.measurer.count(candidate) <= context.limit:
             output = candidate
-    return output
+    return _ComposedOutput(output, fragment.spans)

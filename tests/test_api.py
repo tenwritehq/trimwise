@@ -9,14 +9,15 @@ from typing import Any
 import pytest
 
 import trimwise
-from trimwise import BudgetUnit, Strategy, TrimConfig, Trimmer
+from trimwise import BudgetUnit, SourceSpan, Strategy, TrimConfig, Trimmer
 
 
 def test_public_exports_are_intentionally_small() -> None:
-    """Expose only the six documented public objects."""
+    """Expose only the seven documented public objects."""
     assert trimwise.__all__ == [
         "BudgetUnit",
         "SemanticBackendError",
+        "SourceSpan",
         "Strategy",
         "TrimConfig",
         "TrimResult",
@@ -103,6 +104,7 @@ def test_short_input_is_returned_exactly() -> None:
     assert result.input_count == result.output_count == len(source)
     assert result.strategy is Strategy.STRUCTURAL
     assert result.trimmed is False
+    assert result.spans == (SourceSpan(0, len(source)),)
 
 
 def test_auto_with_query_resolves_to_lexical() -> None:
@@ -118,6 +120,7 @@ def test_zero_limit_returns_empty_measured_result() -> None:
     assert result.input_count == 3
     assert result.output_count == 0
     assert result.trimmed is True
+    assert result.spans == ()
 
 
 @pytest.mark.parametrize(
@@ -209,9 +212,12 @@ def test_word_budget_counts_whitespace_delimited_words() -> None:
 
 def test_character_budget_counts_unicode_code_points() -> None:
     """Count multilingual text as Python code points rather than bytes."""
-    result = Trimmer().trim("你好世界", 3, unit="characters")
+    source = "你好世界"
+    result = Trimmer().trim(source, 3, unit="characters")
     assert result.output_count <= 3
     assert len(result.text) <= 3
+    assert result.spans == (SourceSpan(0, 3),)
+    assert source[result.spans[0].start : result.spans[0].end] == result.text
 
 
 def test_token_budget_accepts_special_token_looking_text() -> None:
@@ -288,6 +294,25 @@ def test_custom_marker_is_used_when_it_fits() -> None:
     )
     assert "<cut>" in result.text
     assert result.output_count <= 42
+    assert result.spans == (
+        SourceSpan(0, len("FIRST important.\n")),
+        SourceSpan(source.index("LAST"), len(source)),
+    )
+
+
+def test_adjacent_retained_segments_merge_across_copied_whitespace() -> None:
+    """Return one maximal span for contiguous source-backed output."""
+    source = "# Ignore\n\nnoise filler words.\n\n# Target\n\ntarget detail here.\n\ntrailing noise."
+    result = Trimmer(TrimConfig(omission_marker="<cut>")).trim(
+        source,
+        30,
+        unit="characters",
+        strategy="lexical",
+        query="target detail",
+    )
+    start = source.index("# Target")
+    assert result.spans == (SourceSpan(start, start + len(result.text)),)
+    assert source[result.spans[0].start : result.spans[0].end] == result.text
 
 
 def test_content_wins_when_marker_cannot_fit() -> None:

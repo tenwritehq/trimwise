@@ -32,6 +32,19 @@ class SemanticBackendError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class SourceSpan:
+    """Identify a retained range in the original input string.
+
+    Attributes:
+        start: Inclusive Python-string offset.
+        end: Exclusive Python-string offset.
+    """
+
+    start: int
+    end: int
+
+
+@dataclass(frozen=True, slots=True)
 class TrimConfig:
     """Configure reusable measurement, ranking, and omission behavior.
 
@@ -105,6 +118,7 @@ class TrimResult:
         unit: Unit used for all counts.
         strategy: Concrete strategy used after resolving ``auto``.
         trimmed: Whether the output differs from the input.
+        spans: Ordered, nonoverlapping ranges retained from the original input.
     """
 
     text: str
@@ -114,3 +128,4 @@ class TrimResult:
     unit: BudgetUnit
     strategy: Strategy
     trimmed: bool
+    spans: tuple[SourceSpan, ...] = ()

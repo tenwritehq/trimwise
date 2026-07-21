@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from trimwise import SemanticBackendError, TrimConfig, Trimmer
+from trimwise import SemanticBackendError, SourceSpan, TrimConfig, Trimmer
 from trimwise.semantic import SemanticEmbedder
 
 
@@ -632,6 +632,10 @@ async def test_async_and_sync_results_match() -> None:
     synchronous = trimmer.trim(source, 30, unit="characters")
     asynchronous = await trimmer.atrim(source, 30, unit="characters")
     assert asynchronous == synchronous
+    assert asynchronous.spans == (
+        SourceSpan(0, len("First fact.\n")),
+        SourceSpan(source.index("Last fact."), len(source)),
+    )
 
 
 @pytest.mark.asyncio

@@ -295,19 +295,23 @@ may need network access the first time it loads an encoding into its local cache
 | `unit` | The unit used for the three counts |
 | `strategy` | Concrete strategy used after resolving `auto` |
 | `trimmed` | Whether the returned text differs from the input |
+| `spans` | Ordered, end-exclusive ranges retained from the original input string |
 
 ```python
 from trimwise import Trimmer
 
-result = Trimmer().trim("First fact. Middle detail. Final decision.", 5, unit="words")
+source = "First fact. Middle detail. Final decision."
+result = Trimmer().trim(source, 5, unit="words")
 
 print(result.text)
 print(f"{result.output_count}/{result.limit} {result.unit.value}")
 print(f"strategy={result.strategy.value}, trimmed={result.trimmed}")
+print(result.spans)
 ```
 
 Use `result.text` in the prompt. The other fields are useful for logging, budgeting, and checking
-which automatic strategy was selected.
+which automatic strategy was selected. Slice the original string with
+`source[span.start:span.end]`; generated markers and separators are not part of any span.
 
 ## 7. Use Trimwise without blocking an async application
 
