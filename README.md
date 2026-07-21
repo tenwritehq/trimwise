@@ -2,10 +2,10 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/trimwise.svg)](https://pypi.org/project/trimwise/)
 
-**Keep the most useful parts of long text before adding it to an LLM prompt.**
+> Keep the most useful parts of long text before adding it to an LLM prompt.
 
-Trimwise creates compact, high-signal excerpts from documents, blog posts, search results you have
-already fetched, logs, and tool output. Instead of keeping only `text[:N]`, it can select complete
+Trimwise creates compact, high-signal excerpts from documents, blog posts, search results, logs, and tool output. 
+Instead of keeping only `text[:N]`, it can select complete
 fragments from across the source, reduce obvious repetition, and return everything inside an exact
 token, word, or character limit.
 
@@ -18,60 +18,38 @@ database, or rewrite your evidence.
 [API reference](https://trimwise.readthedocs.io/en/latest/api-reference/) ·
 [PyPI](https://pypi.org/project/trimwise/)
 
-## Why use Trimwise?
+## A typical use-case
 
-Prefix truncation is fast, but it assumes the beginning contains the best information. Real sources
-often put decisions, conclusions, error messages, identifiers, and examples much later.
+Suppose an LLM must cluster many blog posts. Sending every full post may exceed the context window,
+while `post[:N]` gives the model only introductions. Trim each post independently, then assemble the
+prompt from the resulting excerpts:
 
-```text
-Prefix slicing:  [introduction -------------------------------] cut
+```python
+from pathlib import Path
 
-Trimwise:        [opening context] [...omitted...] [important decision]
+from trimwise import Trimmer
+
+instructions = """\
+Cluster the blog posts by their main topic.
+Give each cluster a short name and list its source numbers.
+Base the answer only on the supplied excerpts.
+"""
+
+trimmer = Trimmer()
+excerpts = []
+
+for number, path in enumerate(sorted(Path("posts").glob("*.md")), start=1):
+    source = path.read_text(encoding="utf-8")
+    excerpt = trimmer.trim(source, limit=300, strategy="structural").text
+    excerpts.append(f"## Source {number}: {path.name}\n{excerpt}")
+
+prompt = instructions + "\n\n" + "\n\n".join(excerpts)
 ```
 
-Trimwise is designed for prompt assembly:
-
-- **Trim evidence, not instructions.** Keep your system prompt, task, and output schema unchanged.
-- **Give every source a fair budget.** One large document cannot consume the space intended for
-  every other source.
-- **Keep evidence traceable.** Selected fragments stay verbatim and in their original order.
-- **Select beyond the introduction.** Headings, paragraphs, lists, tables, code fences, sentences,
-  and source lines can all become candidates.
-- **Follow the task when one is known.** Use exact lexical matching, semantic similarity, or both.
-- **Stay lightweight when embeddings are unnecessary.** Structural and lexical trimming need no
-  embedding model.
-- **Use research-grounded selection.** Trimwise combines BM25, centroid salience, sentence
-  embeddings, score fusion, MMR, and adaptive evidence selection.
-
-## How Trimwise compares with prompt compressors
-
-Trimwise and model-based prompt compressors shorten text at different levels. Trimwise chooses
-complete source fragments before prompt assembly. Methods such as LLMLingua can remove individual
-tokens from an already assembled prompt, which can achieve much denser compression but may leave
-text that is harder for people to read or trace.
-
-| Approach | What it keeps or removes | Extra compression model | Best fit |
-| --- | --- | --- | --- |
-| Prefix slicing | Keeps only the beginning | No | Lowest possible overhead when missing later evidence is acceptable |
-| Trimwise | Selects complete source blocks, sentences, or lines and restores source order | No for structural or lexical use | Readable, source-backed excerpts with an exact final budget |
-| [LLMLingua](https://aclanthology.org/2023.emnlp-main.825/) family | Removes tokens throughout a prompt; LongLLMLingua also uses the query and long-context position | Yes | Aggressive compression when downstream model performance matters more than human-readable excerpts |
-| [Selective Context](https://arxiv.org/abs/2310.06201) | Removes low-self-information tokens, phrases, or sentences | Yes | Pruning predictable language using a causal language model |
-| [RECOMP](https://proceedings.iclr.cc/paper_files/paper/2024/hash/bda88ed2892f5e61c9a9bf215c566913-Abstract-Conference.html) | Selects sentences or generates a summary from retrieved documents | Yes, with trained compressors | Compressing RAG results for a downstream task, including abstractive synthesis when allowed |
-
-The LLMLingua family can preserve more task-relevant information per token at aggressive ratios.
-Its remaining tokens still come from the prompt, but complete sentence and block boundaries are not
-preserved. RECOMP's extractive path keeps selected sentences; its abstractive path can combine
-information across documents but no longer returns only original wording.
-
-Choose Trimwise when evidence must stay readable, source fragments must remain verbatim and ordered,
-or adding another compression model is undesirable. Choose a model-based compressor when maximum
-compression density is more important and you can evaluate its effect on your own downstream task.
-The methods can also be chained: select broad evidence with Trimwise, then apply token-level
-compression. After the second step, Trimwise's whole-fragment and source-layout guarantees no
-longer describe the final prompt.
-
-See the detailed [research comparison](https://trimwise.readthedocs.io/en/latest/research-foundations/#how-trimwise-compares-with-model-based-compression)
-for the differences among LLMLingua, LongLLMLingua, LLMLingua-2, Selective Context, and RECOMP.
+This keeps the prompt layers separate: instructions remain exact, every source gets its own
+ceiling, and each excerpt can represent material from across its source. Labels, separators, and
+instructions still consume space in the final prompt, so leave room for them when choosing each
+source limit.
 
 ## Installation
 
@@ -124,38 +102,35 @@ print(result.strategy)      # Strategy.LEXICAL: auto resolved from the query
 present. Neither path loads an embedding model. If the original input already fits, Trimwise
 returns it byte-for-byte unchanged.
 
-## Main use case: trim each source before building the prompt
+## How Trimwise compares with prompt compressors
 
-Suppose an LLM must cluster many blog posts. Sending every full post may exceed the context window,
-while `post[:N]` gives the model only introductions. Trim each post independently, then assemble the
-prompt from the resulting excerpts:
+Trimwise and model-based prompt compressors shorten text at different levels. Trimwise chooses
+complete source fragments before prompt assembly. Methods such as LLMLingua can remove individual
+tokens from an already assembled prompt, which can achieve much denser compression but may leave
+text that is harder for people to read or trace.
 
-```python
-from pathlib import Path
+| Approach | What it keeps or removes | Extra compression model | Best fit |
+| --- | --- | --- | --- |
+| Prefix slicing | Keeps only the beginning | No | Lowest possible overhead when missing later evidence is acceptable |
+| Trimwise | Selects complete source blocks, sentences, or lines and restores source order | No for structural or lexical use | Readable, source-backed excerpts with an exact final budget |
+| [LLMLingua](https://aclanthology.org/2023.emnlp-main.825/) family | Removes tokens throughout a prompt; LongLLMLingua also uses the query and long-context position | Yes | Aggressive compression when downstream model performance matters more than human-readable excerpts |
+| [Selective Context](https://arxiv.org/abs/2310.06201) | Removes low-self-information tokens, phrases, or sentences | Yes | Pruning predictable language using a causal language model |
+| [RECOMP](https://proceedings.iclr.cc/paper_files/paper/2024/hash/bda88ed2892f5e61c9a9bf215c566913-Abstract-Conference.html) | Selects sentences or generates a summary from retrieved documents | Yes, with trained compressors | Compressing RAG results for a downstream task, including abstractive synthesis when allowed |
 
-from trimwise import Trimmer
+The LLMLingua family can preserve more task-relevant information per token at aggressive ratios.
+Its remaining tokens still come from the prompt, but complete sentence and block boundaries are not
+preserved. RECOMP's extractive path keeps selected sentences; its abstractive path can combine
+information across documents but no longer returns only original wording.
 
-instructions = """\
-Cluster the blog posts by their main topic.
-Give each cluster a short name and list its source numbers.
-Base the answer only on the supplied excerpts.
-"""
+Choose Trimwise when evidence must stay readable, source fragments must remain verbatim and ordered,
+or adding another compression model is undesirable. Choose a model-based compressor when maximum
+compression density is more important and you can evaluate its effect on your own downstream task.
+The methods can also be chained: select broad evidence with Trimwise, then apply token-level
+compression. After the second step, Trimwise's whole-fragment and source-layout guarantees no
+longer describe the final prompt.
 
-trimmer = Trimmer()
-excerpts = []
-
-for number, path in enumerate(sorted(Path("posts").glob("*.md")), start=1):
-    source = path.read_text(encoding="utf-8")
-    excerpt = trimmer.trim(source, limit=300, strategy="structural").text
-    excerpts.append(f"## Source {number}: {path.name}\n{excerpt}")
-
-prompt = instructions + "\n\n" + "\n\n".join(excerpts)
-```
-
-This keeps the prompt layers separate: instructions remain exact, every source gets its own
-ceiling, and each excerpt can represent material from across its source. Labels, separators, and
-instructions still consume space in the final prompt, so leave room for them when choosing each
-source limit.
+See the detailed [research comparison](https://trimwise.readthedocs.io/en/latest/research-foundations/#how-trimwise-compares-with-model-based-compression)
+for the differences among LLMLingua, LongLLMLingua, LLMLingua-2, Selective Context, and RECOMP.
 
 ## Choose a strategy
 
@@ -179,7 +154,9 @@ behavior, and practical tradeoffs.
 
 ## Semantic trimming
 
-You have two options.
+When performing query-aware trimming, Trimwise uses an embedding model to find pieces most relevant to the query. You
+can either provide the embedding model or let Trimwise manage its own model. You can configure the model Trimwise uses
+using the configuration object.
 
 ### Let Trimwise manage the model
 
