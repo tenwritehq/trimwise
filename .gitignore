@@ -224,3 +224,33 @@ __marimo__/
 
 # MkDocs build output
 site/
+
+# Local agent and editor workspace state
+/.agents/
+/.codex/
+/.idea/
+/2
+/goals.md
+/last_session
+/overrides/
+/skills-lock.json
+
+# Generated manuscript build products
+/assets/paper/latex/main.aux
+/assets/paper/latex/main.bbl
+/assets/paper/latex/main.blg
+/assets/paper/latex/main.fdb_latexmk
+/assets/paper/latex/main.fls
+/assets/paper/latex/main.log
+/assets/paper/latex/main.pdf
+
+# Superseded draft and local export assets; canonical paper source is assets/paper/latex/.
+/assets/[1-4].png
+/assets/main.png
+/assets/paper/outline.md
+/assets/paper/paper.md
+/assets/paper/*.svg
+/assets/paper/trimwise-equations.tex
+/assets/trimwise-logo-512.png
+/assets/trimwise-wordmark-dark.png
+/assets/trimwise-wordmark-light.png

@@ -1,0 +1,6 @@
+{
+  "scope": "query-aware and source-only context selection before prompt assembly",
+  "dataset_source": "frozen 160-case position-controlled mixed synthetic/public-source snapshot",
+  "llmlingua_package": "0.2.2",
+  "trimwise_package": "0.2.0"
+}

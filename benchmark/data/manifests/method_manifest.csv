@@ -1,0 +1,11 @@
+method,awareness,model,benchmark_input
+naive_first_n,source-only,none,context only
+head_tail,source-only,none,context only
+trimwise_structural,source-only,none,context only
+llmlingua_queryless,source-only,openai-community/gpt2,context only
+llmlingua2,source-only,BERT-base MeetingBank checkpoint,context only
+trimwise_lexical,query-aware,none,context + query
+trimwise_hybrid,query-aware,BM25 + FastEmbed,context + query
+llmlingua,query-aware,openai-community/gpt2,context + query
+longllmlingua,query-aware,openai-community/gpt2,context + query
+recomp_extractive,query-aware,fangyuan/nq_extractive_compressor,context + query

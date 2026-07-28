@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-28T08:34:22+05:30",
+  "scope": "Position-controlled 160-case benchmark environment and saved-artifact snapshot.",
+  "provenance": {
+    "base_repository_head": "15236c67a5b9",
+    "branch": "main",
+    "source_revision_status": "This was the base repository revision when the local snapshot was collected. The Git commit containing this manifest identifies the snapshot contents; the hashes below remain the artifact-level integrity check.",
+    "public_release_status": "Released in the annotated paper-v1 Git tag; that tag freezes the public artifact snapshot."
+  },
+  "platform": {
+    "operating_system": "Fedora Linux 44 (KDE Plasma Desktop Edition)",
+    "kernel": "7.1.3-201.fc44.x86_64",
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700F",
+    "memory_gib": 62.6,
+    "gpu": "NVIDIA GeForce RTX 3060 Ti",
+    "gpu_memory_mib": 8192,
+    "nvidia_driver": "610.43.03",
+    "cuda_user_mode_driver": "13.3",
+    "python": "3.12.13"
+  },
+  "environment": {
+    "uv_lock_sha256": "af0a7407cfdb56534462a1a0a47c2d30490c0e0d5cae3653b2a11f83b136b68f",
+    "packages": {
+      "trimwise": "0.2.0 (PyPI)",
+      "llmlingua": "0.2.2",
+      "torch": "2.10.0+cu128",
+      "transformers": "4.43.1",
+      "fastembed": "0.8.0",
+      "onnxruntime-gpu": "1.23.2",
+      "openai": "2.47.0",
+      "tiktoken": "0.13.0"
+    }
+  },
+  "model_artifacts": {
+    "openai-community/gpt2": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
+    "microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank": "5f0c82792b7ea14c6484e015b6a072009496b7f2",
+    "fangyuan/nq_extractive_compressor": "46f98c1f57fa919c72d86ced16e3ece3403f9e9e",
+    "qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q": "faf4aa4225822f3bc6376869cb1164e8e3feedd0",
+    "openai_responses_models": [
+      "gpt-5.4-nano-2026-03-17",
+      "gpt-5.4-mini-2026-03-17",
+      "gpt-5.6-luna"
+    ]
+  },
+  "run_configuration": {
+    "config": "configs/position_controlled_160.yaml",
+    "config_sha256": "dff634fd4362a66f9b3239bb01e53126ff1b4a7fe33bf33147e217b5215165ed",
+    "seed": 242,
+    "budgets": [128, 256, 512, 1024],
+    "cuda_visible_devices": "0",
+    "thermal_policy_celsius": {
+      "pause": 70,
+      "resume": 60,
+      "hard_stop": 75,
+      "cooldown_timeout_seconds": 1800
+    },
+    "openai_qa": {
+      "max_output_tokens": 128,
+      "reasoning_effort": "none",
+      "verbosity": "low",
+      "max_concurrency": 16
+    }
+  },
+  "artifacts": {
+    "data/position_controlled_160.jsonl": "9d9667127dc4461b000f78cd4b46e3e845c9d4030af09c353ee69a4bd81bfdab",
+    "results/position_controlled_160_results.jsonl": "38248f76276c24db0ce2f9a8b3c74eeaaa7668e78862c0f2e1b4436c8a24d38d",
+    "results/position_controlled_160_qa_gpt_5_4_nano.jsonl": "de07dbaf3c2d435494f614b0b27903f80a2c4bad952b1b087740f83169628eee",
+    "results/position_controlled_160_qa_gpt_5_4_mini.jsonl": "a568d581ee8315bad984167c155adfd29ad3703377a6ba5795643746b7c29eaa",
+    "results/position_controlled_160_qa_gpt_5_6_luna.jsonl": "299f99483737ad7b3b41352d37edea4b1ab093f66699109b180268b0ebfb514f",
+    "results/position_controlled_160_summary.csv": "c0cfad2f2505839c2346251b9ea7832aa9827165f2b47655c53d47cd195b1f3a",
+    "results/position_controlled_160_paired_stats.csv": "0a2536f3e4d6af8814e63953743731fcc5117dc251f4735c76de050827226d60"
+  }
+}

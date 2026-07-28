@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660" role="img" aria-labelledby="title desc">
+  <title id="title">Query-aware benchmark: Trimwise Hybrid case-pass rate by output budget</title>
+  <desc id="desc">A line chart from a position-controlled 160-case benchmark. Trimwise Hybrid scores 50.6, 63.8, 66.9, and 69.4 percent at 128, 256, 512, and 1024-token budgets, respectively, above LLMLingua, LongLLMLingua, and RECOMP in this benchmark.</desc>
+
+  <rect width="1200" height="660" rx="28" fill="#11161A"/>
+  <path d="M56 64H1144M56 600H1144" stroke="#8C989D" stroke-opacity=".35"/>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="64" y="106" fill="#39E0D0" font-size="20" font-weight="700" letter-spacing="2">POSITION-CONTROLLED BENCHMARK</text>
+    <text x="64" y="158" fill="#F3F0E8" font-size="46" font-weight="700">Case pass under a fixed output budget</text>
+    <text x="64" y="190" fill="#8C989D" font-size="20">Query-aware methods receive the same source and question. Higher is better.</text>
+
+    <g font-size="18" font-weight="600">
+      <path d="M68 222h28" stroke="#39E0D0" stroke-width="4" stroke-linecap="round"/>
+      <text x="106" y="228" fill="#F3F0E8">Trimwise Hybrid</text>
+      <path d="M332 222h28" stroke="#C87524" stroke-width="3" stroke-linecap="round"/>
+      <text x="370" y="228" fill="#F3F0E8">LLMLingua</text>
+      <path d="M548 222h28" stroke="#A06CD5" stroke-width="3" stroke-linecap="round"/>
+      <text x="586" y="228" fill="#F3F0E8">LongLLMLingua</text>
+      <path d="M830 222h28" stroke="#8C989D" stroke-width="3" stroke-linecap="round"/>
+      <text x="868" y="228" fill="#F3F0E8">RECOMP</text>
+    </g>
+
+    <g stroke="#8C989D" stroke-opacity=".28" stroke-width="1">
+      <path d="M96 550H1120M96 479H1120M96 409H1120M96 338H1120M96 267H1120"/>
+    </g>
+    <g fill="#8C989D" font-size="18" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+      <text x="52" y="556">0.0</text>
+      <text x="52" y="485">0.2</text>
+      <text x="52" y="415">0.4</text>
+      <text x="52" y="344">0.6</text>
+      <text x="52" y="273">0.8</text>
+      <text x="96" y="584">128</text>
+      <text x="398" y="584">256</text>
+      <text x="673" y="584">512</text>
+      <text x="1005" y="584">1024</text>
+    </g>
+
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M170 371L415 324L690 313L1030 304" stroke="#39E0D0" stroke-width="5"/>
+      <path d="M170 537L415 521L690 495L1030 411" stroke="#C87524" stroke-width="3"/>
+      <path d="M170 548L415 532L690 521L1030 468" stroke="#A06CD5" stroke-width="3"/>
+      <path d="M170 433L415 415L690 380L1030 353" stroke="#8C989D" stroke-width="3"/>
+    </g>
+
+    <g>
+      <g fill="#39E0D0"><circle cx="170" cy="371" r="7"/><circle cx="415" cy="324" r="7"/><circle cx="690" cy="313" r="7"/><circle cx="1030" cy="304" r="7"/></g>
+      <g fill="#C87524"><circle cx="170" cy="537" r="5"/><circle cx="415" cy="521" r="5"/><circle cx="690" cy="495" r="5"/><circle cx="1030" cy="411" r="5"/></g>
+      <g fill="#A06CD5"><circle cx="170" cy="548" r="5"/><circle cx="415" cy="532" r="5"/><circle cx="690" cy="521" r="5"/><circle cx="1030" cy="468" r="5"/></g>
+      <g fill="#8C989D"><circle cx="170" cy="433" r="5"/><circle cx="415" cy="415" r="5"/><circle cx="690" cy="380" r="5"/><circle cx="1030" cy="353" r="5"/></g>
+    </g>
+
+    <text x="96" y="630" fill="#8C989D" font-size="18">160 cases · 40 beginning · 40 middle · 40 end · 40 multiple</text>
+    <text x="690" y="630" fill="#8C989D" font-size="16">Case pass = evidence retained + no prohibited text + budget fit</text>
+  </g>
+</svg>

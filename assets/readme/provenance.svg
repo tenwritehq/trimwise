@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="title desc">
+  <title id="title">Trimwise source-backed prompt trimming</title>
+  <desc id="desc">A source document is measured and ranked, useful exact fragments are selected, and the result returns ordered, end-exclusive SourceSpan offsets into the original Python string under an exact budget.</desc>
+
+  <rect width="1200" height="400" rx="28" fill="#11161A"/>
+  <path d="M56 64H1144M56 360H1144" stroke="#8C989D" stroke-opacity=".35"/>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="64" y="105" fill="#39E0D0" font-size="20" font-weight="700" letter-spacing="2">EXTRACTIVE PROMPT TRIMMING</text>
+    <text x="64" y="170" fill="#F3F0E8" font-size="72" font-weight="700">Trimwise</text>
+    <text x="64" y="214" fill="#F3F0E8" font-size="25">Keep useful source fragments with original offsets.</text>
+    <text x="64" y="250" fill="#8C989D" font-size="20">Exact source text · source order · exact output budget</text>
+
+    <g transform="translate(665 76)">
+      <text x="0" y="-16" fill="#8C989D" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" letter-spacing="1.4">SOURCE DOCUMENT</text>
+      <rect width="238" height="194" rx="16" fill="#F3F0E8"/>
+      <rect x="18" y="22" width="110" height="12" rx="6" fill="#11161A"/>
+      <rect x="18" y="53" width="186" height="9" rx="4.5" fill="#8C989D" opacity=".7"/>
+      <rect x="18" y="75" width="153" height="9" rx="4.5" fill="#8C989D" opacity=".7"/>
+      <path d="M12 101h8m-8 0v49m0 0h8" fill="none" stroke="#39B8AD" stroke-width="4" stroke-linecap="round"/>
+      <rect x="28" y="108" width="176" height="10" rx="5" fill="#11161A"/>
+      <rect x="28" y="130" width="131" height="10" rx="5" fill="#11161A"/>
+      <path d="M12 157h8m-8 0v23m0 0h8" fill="none" stroke="#39B8AD" stroke-width="4" stroke-linecap="round"/>
+      <rect x="28" y="164" width="171" height="10" rx="5" fill="#11161A"/>
+    </g>
+
+    <path d="M921 173h30" stroke="#39E0D0" stroke-width="3" stroke-linecap="round"/>
+    <path d="m945 166 12 7-12 7" fill="none" stroke="#39E0D0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <g transform="translate(960 104)">
+      <rect width="178" height="140" rx="16" fill="#1D272B" stroke="#39E0D0" stroke-width="2"/>
+      <text x="20" y="31" fill="#39E0D0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="700">RESULT</text>
+      <rect x="20" y="49" width="118" height="10" rx="5" fill="#F3F0E8"/>
+      <text x="20" y="82" fill="#F3F0E8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">spans=(18, 42)</text>
+      <text x="20" y="106" fill="#F3F0E8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">      (96, 126)</text>
+      <path d="M20 119h138" stroke="#8C989D" stroke-opacity=".55"/>
+      <text x="20" y="136" fill="#F3F0E8" font-size="18">≤ limit</text>
+    </g>
+
+    <path d="M752 282h314" stroke="#39E0D0" stroke-opacity=".7" stroke-width="2"/>
+    <circle cx="752" cy="282" r="5" fill="#39E0D0"/>
+    <circle cx="1066" cy="282" r="5" fill="#39E0D0"/>
+    <text x="780" y="314" fill="#8C989D" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">spans: ordered original-input ranges</text>
+    <text x="780" y="340" fill="#8C989D" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">start inclusive · end exclusive</text>
+  </g>
+</svg>

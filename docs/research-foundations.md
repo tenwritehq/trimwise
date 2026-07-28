@@ -275,8 +275,11 @@ methods and 1.6x-2.9x end-to-end latency acceleration at 2x-5x compression ratio
 Compared with this family, Trimwise uses coarser units and cannot usually reach the same density at
 extreme compression ratios. Its benefit is that selected passages remain complete, readable source
 fragments; structural and lexical use require no compression model; and the final composed result
-is measured against the caller's exact budget. Trimwise has not been benchmarked head-to-head
-against the LLMLingua family, so it does not claim better downstream answer quality.
+is measured against the caller's exact budget. A position-controlled in-repository benchmark now
+compares query-aware Trimwise configurations with LLMLingua and LongLLMLingua under a shared external
+counter; its scoped evidence-retention results and failure modes are documented in the
+[benchmark protocol](https://github.com/tenwritehq/trimwise/blob/main/benchmark/README.md). The
+results remain scoped to that benchmark and do not establish general downstream answer quality.
 
 ### Selective Context
 
