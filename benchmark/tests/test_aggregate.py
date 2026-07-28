@@ -16,8 +16,20 @@ def test_aggregate_reports_thermal_wait_and_peak_temperature(
 ) -> None:
     """Summarize thermal metadata separately from compression and QA latency."""
     compression_path = tmp_path / "compression.jsonl"
+    dataset_path = tmp_path / "dataset.jsonl"
     qa_path = tmp_path / "qa.jsonl"
     summary_path = tmp_path / "summary.csv"
+    dataset_path.write_text(
+        json.dumps(
+            {
+                "case_id": "case",
+                "context": "alpha beta gamma",
+                "gold_evidence": [{"text": "alpha beta"}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     compression_path.write_text(
         json.dumps(
             {
@@ -27,6 +39,7 @@ def test_aggregate_reports_thermal_wait_and_peak_temperature(
                 "track": "test",
                 "budget": 128,
                 "status": "success",
+                "output": "alpha beta",
                 "evidence_recall": 1.0,
                 "evidence_f1": 1.0,
                 "all_required_evidence_success": True,
@@ -75,6 +88,8 @@ def test_aggregate_reports_thermal_wait_and_peak_temperature(
             "aggregate",
             "--input",
             str(compression_path),
+            "--dataset",
+            str(dataset_path),
             "--qa-input",
             str(qa_path),
             "--output",
@@ -87,3 +102,5 @@ def test_aggregate_reports_thermal_wait_and_peak_temperature(
     summary = summary_path.read_text(encoding="utf-8")
     assert "total_thermal_wait_ms" in summary
     assert "max_qa_thermal_temperature_c" in summary
+    assert "normalized_contiguous_case_pass_rate" in summary
+    assert "local_ordered_90_case_pass_rate" in summary

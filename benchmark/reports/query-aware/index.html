@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Trimwise benchmark — Context selection with a question</title>
+<title>Trimwise benchmark — Historical v1.1 context selection with a question</title>
 <style>
 :root { color-scheme: light; --ink:#172033; --muted:#526074; --rule:#d8dee8; --paper:#fff; --surface:#f7f9fc; --accent:#155eef; }
 * { box-sizing:border-box; } body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
@@ -16,22 +16,22 @@ a { color:var(--accent); } .shell { max-width:1680px; margin:auto; padding:0 32p
 <header><div class="shell"><a class="brand" href="../index.html">Trimwise benchmark</a></div></header>
 <main class="shell">
 <p>POSITION-CONTROLLED EVALUATION SUITE</p>
-<h1>Context selection with a question</h1>
-<p class="lede">Every method receives the same source and question. These results show how well each one keeps the source material needed for the task.</p>
+<h1>Historical v1.1 context selection with a question</h1>
+<p class="lede">Every method receives the same source and question. This archived report uses the permissive v1.1 bag-of-token case-pass metric; see the v1.2 sensitivity report for the strict source-span result.</p>
 <p class="notice">The original 250-case corpus remains unchanged; the separate 160-case evaluation contains 135 natural cases and 25 controlled relocations. The end-position figures report natural end (n=15), relocated end (n=25), and the combined controlled end stratum (n=40).</p>
 <dl class="facts">
 <div><dt>Information available</dt><dd>Source and question</dd></div>
 <div><dt>Maximum kept text</dt><dd>128, 256, 512, 1024 tokens</dd></div>
-<div><dt>Methods shown</dt><dd>Trimwise Lexical, Trimwise Hybrid, LLMLingua, LongLLMLingua, RECOMP</dd></div>
+<div><dt>Methods shown</dt><dd>Trimwise Lexical, Trimwise Hybrid, LLMLingua GPT-2 token-pruning adapter, LongLLMLingua GPT-2 single-context adapter, RECOMP NQ extractive sentence adapter</dd></div>
 <div><dt>Where needed text appears</dt><dd>Beginning · middle · end · several places</dd></div>
 </dl>
 <section><h2>Results</h2><div class="figure-grid"><article class="figure-card"><figure>
-<img src="utility_vs_budget.png" alt="Primary result: task success at each context size" width="1600" height="960" loading="lazy">
-<figcaption><strong>Primary result: task success at each context size</strong> — Higher is better. Question answering, instructions, procedures, and structured-source tasks have equal weight.</figcaption>
+<img src="utility_vs_budget.png" alt="Historical v1.1 case pass at each context size" width="1600" height="960" loading="lazy">
+<figcaption><strong>Historical v1.1 case pass at each context size</strong> — Higher is better under the archived bag-of-token scorer. Question answering, instructions, procedures, and structured-source tasks have equal weight.</figcaption>
 </figure></article>
 <article class="figure-card"><figure>
-<img src="natural_only_vs_budget.png" alt="Secondary check: naturally positioned cases only" width="1600" height="960" loading="lazy">
-<figcaption><strong>Secondary check: naturally positioned cases only</strong> — The 25 controlled relocations are excluded. This uses 135 saved natural cases; it is not position-balanced because only 15 natural cases have end-position evidence.</figcaption>
+<img src="natural_only_vs_budget.png" alt="Historical v1.1 natural-placement check" width="1600" height="960" loading="lazy">
+<figcaption><strong>Historical v1.1 natural-placement check</strong> — The 25 controlled relocations are excluded. This uses 135 saved natural cases; it is not position-balanced because only 15 natural cases have end-position evidence.</figcaption>
 </figure></article>
 <article class="figure-card"><figure>
 <img src="answer_pass.png" alt="Downstream answer match" width="1600" height="960" loading="lazy">
@@ -46,20 +46,20 @@ a { color:var(--accent); } .shell { max-width:1680px; margin:auto; padding:0 32p
 <figcaption><strong>End-position construction check</strong> — Natural end cases (n=15), controlled end relocations (n=25), and their combined 40-case controlled end stratum are reported separately. The combined column is a weighted view of the first two, not an independent sample.</figcaption>
 </figure></article>
 <article class="figure-card"><figure>
-<img src="utility_vs_latency.png" alt="Task success and trimming time" width="1600" height="960" loading="lazy">
-<figcaption><strong>Task success and trimming time</strong> — Higher and farther left is preferable. Timing comes from the recorded hardware and run conditions.</figcaption>
+<img src="utility_vs_latency.png" alt="Historical v1.1 case pass and trimming time" width="1600" height="960" loading="lazy">
+<figcaption><strong>Historical v1.1 case pass and trimming time</strong> — Higher and farther left is preferable. Timing comes from the recorded hardware and run conditions.</figcaption>
 </figure></article>
 <article class="figure-card"><figure>
-<img src="task_breakdown.png" alt="Results by task type" width="1600" height="960" loading="lazy">
-<figcaption><strong>Results by task type</strong> — Question answering, following instructions, ordered procedures, and structured source text stay separate rather than being hidden inside one score.</figcaption>
+<img src="task_breakdown.png" alt="Historical v1.1 results by task type" width="1600" height="960" loading="lazy">
+<figcaption><strong>Historical v1.1 results by task type</strong> — Question answering, following instructions, ordered procedures, and structured source text stay separate rather than being hidden inside one archived score.</figcaption>
 </figure></article></div></section>
 <section><h2>Completion and resource use</h2><p class="lede">A useful method must finish and stay within the requested limit.</p><div class="table-wrap"><table><thead><tr>
 <th>Method</th><th>Completed</th><th>Over the limit</th><th>95th-percentile time</th><th>Typical GPU memory</th><th>Highest GPU temperature</th><th>Cooling pause</th>
 </tr></thead><tbody><tr><td>Trimwise Lexical</td><td>100.0%</td><td>0.0%</td><td>7.2 ms</td><td>395 MB</td><td>58 °C</td><td>0.0 s</td></tr>
 <tr><td>Trimwise Hybrid</td><td>100.0%</td><td>0.0%</td><td>46.2 ms</td><td>395 MB</td><td>48 °C</td><td>0.0 s</td></tr>
-<tr><td>LLMLingua</td><td>100.0%</td><td>31.8%</td><td>175.7 ms</td><td>1710 MB</td><td>67 °C</td><td>0.0 s</td></tr>
-<tr><td>LongLLMLingua</td><td>100.0%</td><td>60.6%</td><td>356.6 ms</td><td>1380 MB</td><td>72 °C</td><td>92.7 s</td></tr>
-<tr><td>RECOMP</td><td>100.0%</td><td>0.0%</td><td>138.4 ms</td><td>534 MB</td><td>71 °C</td><td>24.7 s</td></tr></tbody></table></div></section>
+<tr><td>LLMLingua GPT-2 token-pruning adapter</td><td>100.0%</td><td>31.8%</td><td>175.7 ms</td><td>1710 MB</td><td>67 °C</td><td>0.0 s</td></tr>
+<tr><td>LongLLMLingua GPT-2 single-context adapter</td><td>100.0%</td><td>60.6%</td><td>356.6 ms</td><td>1380 MB</td><td>72 °C</td><td>92.7 s</td></tr>
+<tr><td>RECOMP NQ extractive sentence adapter</td><td>100.0%</td><td>0.0%</td><td>138.4 ms</td><td>534 MB</td><td>71 °C</td><td>24.7 s</td></tr></tbody></table></div></section>
 <section><h2>How scores are calculated</h2><p>See <a href="plot_guide.md">metric definitions</a>. The underlying summary data is available in the supplied CSV file.</p></section>
 </main>
 <footer><div class="shell">Benchmark summary. Results are separated by whether each method receives the question.</div></footer>

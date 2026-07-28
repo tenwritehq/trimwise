@@ -28,28 +28,38 @@ coverage. That is a safe fallback, not the query-aware benchmark claim below.
 ## Query-aware benchmark results
 
 On a position-controlled 160-case benchmark, each method received the same source and question.
-Trimwise Hybrid retained required source evidence more often than the evaluated query-aware
-comparators—LLMLingua, LongLLMLingua, and RECOMP—at every tested budget.
+The v1.2 primary result is **normalized contiguous required-span containment**: every annotated
+source span must occur as one contiguous normalized passage, prohibited text must be absent, and
+the output must fit the budget. Trimwise Lexical leads at 128 tokens; Trimwise Hybrid leads from
+256 through 1,024 tokens against the evaluated adapters.
 
 <p align="center">
-  <img src="./assets/readme/query-aware-benchmark.svg" width="100%" alt="Query-aware case-pass rate by output budget on 160 position-controlled cases. Trimwise Hybrid is above LLMLingua, LongLLMLingua, and RECOMP at all four tested budgets.">
+  <img src="./assets/readme/query-aware-benchmark.svg" width="100%" alt="Normalized contiguous required-span containment by output-token budget on 160 position-controlled cases. Trimwise Lexical leads at 128 tokens and Trimwise Hybrid leads at 256, 512, and 1,024 tokens against the three evaluated adapters.">
 </p>
 
-| Trimwise Hybrid case pass | 128 | 256 | 512 | 1,024 |
+| Evaluated method or adapter | 128 | 256 | 512 | 1,024 |
 | --- | ---: | ---: | ---: | ---: |
-| Observed rate | **50.6%** | **63.8%** | **66.9%** | **69.4%** |
+| **Trimwise Lexical** | **52.5%** | 60.0% | 61.9% | 66.2% |
+| **Trimwise Hybrid** | 49.4% | **62.5%** | **66.9%** | **69.4%** |
+| RECOMP NQ extractive sentence adapter | 27.5% | 30.6% | 35.0% | 35.0% |
+| LLMLingua GPT-2 token-pruning adapter | 3.1% | 7.5% | 13.8% | 22.5% |
+| LongLLMLingua GPT-2 single-context adapter | 0.6% | 4.4% | 6.9% | 16.2% |
 
 | Trimwise Hybrid at 512 tokens | Observed result |
 | --- | --- |
-| Median warm compression at 512 tokens | **43 ms** |
+| Median warm compression at 512 tokens | **42.8 ms** |
 | Median input-token reduction at 512 tokens | **84.7%** |
 
-Case pass requires the required source evidence to survive, prohibited content to be absent, and
-the output to fit its budget. These are observed single-run results on this benchmark; latency is
-hardware-specific and excludes cold loading and thermal cooldown. See the
-[benchmark protocol and full reports](./benchmark/README.md) for method versions, task tracks,
-failure data, and reproduction commands. The local benchmark environment resolves the repository's
-published 0.2.0 release from PyPI.
+The local ordered 80% and 90% sensitivity checks preserve the same ordering at every budget. This
+is a post-hoc robustness analysis over frozen outputs: it measures complete source-span survival,
+not semantic sufficiency, generated-answer quality, or every configuration in the compared method
+families. Latency is hardware-specific and excludes cold loading and thermal cooldown. The
+[v1.2 protocol](./benchmark/data/manifests/evidence_sensitivity_v1_2_protocol.md),
+[frozen manifest](./benchmark/data/manifests/evidence_sensitivity_v1_2_manifest.json), and
+[full sensitivity summary](./benchmark/results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv)
+record the metric, inputs, and all results. The legacy v1.1 bag-of-token case-pass result remains
+available as a [historical diagnostic](./benchmark/results/position_controlled_160_summary.csv).
+The local benchmark environment resolves the published 0.2.0 release from PyPI.
 
 ## A typical use-case
 
@@ -128,8 +138,8 @@ result = Trimmer().trim(
 
 print(result.text)
 print(result.output_count)  # Always <= 24
-print(result.strategy)      # Strategy.LEXICAL: auto resolved from the query
-print(result.spans)         # Original-input Python-string offsets
+print(result.strategy)  # Strategy.LEXICAL: auto resolved from the query
+print(result.spans)  # Original-input Python-string offsets
 ```
 
 `auto` uses structural coverage when no query is supplied and fast lexical BM25 when a query is

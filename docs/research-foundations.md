@@ -278,8 +278,8 @@ fragments; structural and lexical use require no compression model; and the fina
 is measured against the caller's exact budget. A position-controlled in-repository benchmark now
 compares query-aware Trimwise configurations with LLMLingua and LongLLMLingua under a shared external
 counter; its scoped evidence-retention results and failure modes are documented in the
-[benchmark protocol](https://github.com/tenwritehq/trimwise/blob/main/benchmark/README.md). The
-results remain scoped to that benchmark and do not establish general downstream answer quality.
+[query-aware benchmark](benchmark.md). The results remain scoped to that benchmark and do not
+establish general downstream answer quality.
 
 ### Selective Context
 

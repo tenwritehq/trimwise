@@ -20,6 +20,7 @@ nav:
   - Configuration and API: configuration-and-api.md
   - Guarantees and limitations: guarantees-and-limitations.md
   - Research foundations: research-foundations.md
+  - Benchmark: benchmark.md
   - API reference: api-reference.md
 
 plugins:

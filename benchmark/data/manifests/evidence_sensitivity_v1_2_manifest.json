@@ -1,0 +1,52 @@
+{
+  "analysis": "post_hoc_source_evidence_sensitivity_v1_2",
+  "compression_row_diagnostics": {
+    "row_count": 6400,
+    "status_counts": {
+      "success": 6400
+    },
+    "unique_result_identity_count": 6400
+  },
+  "dataset_diagnostics": {
+    "cases_by_required_span_count": {
+      "1": 120,
+      "2": 6,
+      "3": 28,
+      "4": 6
+    },
+    "normalized_required_spans_with_multiple_source_occurrences": 0,
+    "required_span_count": 240,
+    "required_span_token_length": {
+      "maximum": 54,
+      "median": 14.5,
+      "minimum": 3,
+      "p90": 25
+    },
+    "substantially_overlapping_required_span_pairs": 0
+  },
+  "generated_at_utc": "2026-07-28T06:05:04.403812+00:00",
+  "implementation_commit": "1eec659b853fca4a64fb3a380fe9f89099bd5a07",
+  "inputs": {
+    "compression_rows": {
+      "path": "results/position_controlled_160_results.jsonl",
+      "sha256": "38248f76276c24db0ce2f9a8b3c74eeaaa7668e78862c0f2e1b4436c8a24d38d"
+    },
+    "dataset": {
+      "case_count": 160,
+      "path": "data/position_controlled_160.jsonl",
+      "sha256": "9d9667127dc4461b000f78cd4b46e3e845c9d4030af09c353ee69a4bd81bfdab"
+    }
+  },
+  "python": "3.12.13",
+  "result_policy": {
+    "compression_outputs_regenerated": false,
+    "legacy_v1_1_artifacts_modified": false,
+    "summary_output": "results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv"
+  },
+  "schema_version": 1,
+  "scorer_files": {
+    "benchmark/metrics/evidence.py": "a3deb3242787557bbe9f8946f3e2d3716563ec4ace6de1fbe0d5bbcea6dba20e",
+    "benchmark/runners/aggregate.py": "dba24c448632d321c254398c48884745561469a346caa2a4fbb7a646974a2d1b"
+  },
+  "unicode_database": "15.0.0"
+}

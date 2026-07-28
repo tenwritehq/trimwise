@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Trimwise benchmark — Context selection without a question</title>
+<title>Trimwise benchmark — Historical v1.1 context selection without a question</title>
 <style>
 :root { color-scheme: light; --ink:#172033; --muted:#526074; --rule:#d8dee8; --paper:#fff; --surface:#f7f9fc; --accent:#155eef; }
 * { box-sizing:border-box; } body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
@@ -16,18 +16,18 @@ a { color:var(--accent); } .shell { max-width:1680px; margin:auto; padding:0 32p
 <header><div class="shell"><a class="brand" href="../index.html">Trimwise benchmark</a></div></header>
 <main class="shell">
 <p>POSITION-CONTROLLED EVALUATION SUITE</p>
-<h1>Context selection without a question</h1>
-<p class="lede">Every method receives only the source. The question is used later, after the text has been shortened.</p>
+<h1>Historical v1.1 context selection without a question</h1>
+<p class="lede">Every method receives only the source. The question is used later, after the text has been shortened. This archived report uses the v1.1 metric.</p>
 <p class="notice">The original 250-case corpus remains unchanged; the separate 160-case evaluation contains 135 natural cases and 25 controlled relocations. The end-position figures report natural end (n=15), relocated end (n=25), and the combined controlled end stratum (n=40).</p>
 <dl class="facts">
 <div><dt>Information available</dt><dd>Source only</dd></div>
 <div><dt>Maximum kept text</dt><dd>128, 256, 512, 1024 tokens</dd></div>
-<div><dt>Methods shown</dt><dd>Prefix baseline, Head + tail baseline, Trimwise Structural, LLMLingua (no question), LLMLingua2</dd></div>
+<div><dt>Methods shown</dt><dd>Prefix baseline, Head + tail baseline, Trimwise Structural, LLMLingua GPT-2 token-pruning adapter (no question), LLMLingua2</dd></div>
 <div><dt>Where needed text appears</dt><dd>Beginning · middle · end · several places</dd></div>
 </dl>
 <section><h2>Results</h2><div class="figure-grid"><article class="figure-card"><figure>
-<img src="utility_by_position.png" alt="Primary result: task success by source location" width="1600" height="960" loading="lazy">
-<figcaption><strong>Primary result: task success by source location</strong> — Each panel shows where the needed source text appears. The 40-case end panel combines 15 natural end cases with 25 controlled relocations, which the next figure separates.</figcaption>
+<img src="utility_by_position.png" alt="Historical v1.1 case pass by source location" width="1600" height="960" loading="lazy">
+<figcaption><strong>Historical v1.1 case pass by source location</strong> — Each panel shows where the needed source text appears under the archived scorer. The 40-case end panel combines 15 natural end cases with 25 controlled relocations, which the next figure separates.</figcaption>
 </figure></article>
 <article class="figure-card"><figure>
 <img src="end_origin_breakdown.png" alt="End-position construction check" width="1600" height="960" loading="lazy">
@@ -38,7 +38,7 @@ a { color:var(--accent); } .shell { max-width:1680px; margin:auto; padding:0 32p
 </tr></thead><tbody><tr><td>Prefix baseline</td><td>100.0%</td><td>0.0%</td><td>0.9 ms</td><td>0 MB</td><td>49 °C</td><td>0.0 s</td></tr>
 <tr><td>Head + tail baseline</td><td>100.0%</td><td>0.0%</td><td>1.3 ms</td><td>0 MB</td><td>Not recorded</td><td>0.0 s</td></tr>
 <tr><td>Trimwise Structural</td><td>100.0%</td><td>0.0%</td><td>79.4 ms</td><td>0 MB</td><td>Not recorded</td><td>0.0 s</td></tr>
-<tr><td>LLMLingua (no question)</td><td>100.0%</td><td>31.8%</td><td>172.3 ms</td><td>1362 MB</td><td>67 °C</td><td>0.0 s</td></tr>
+<tr><td>LLMLingua GPT-2 token-pruning adapter (no question)</td><td>100.0%</td><td>31.8%</td><td>172.3 ms</td><td>1362 MB</td><td>67 °C</td><td>0.0 s</td></tr>
 <tr><td>LLMLingua2</td><td>100.0%</td><td>58.3%</td><td>86.1 ms</td><td>850 MB</td><td>70 °C</td><td>4.1 s</td></tr></tbody></table></div></section>
 <section><h2>How scores are calculated</h2><p>See <a href="plot_guide.md">metric definitions</a>. The underlying summary data is available in the supplied CSV file.</p></section>
 </main>
