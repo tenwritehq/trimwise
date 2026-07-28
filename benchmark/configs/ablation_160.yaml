@@ -1,0 +1,17 @@
+dataset: data/position_controlled_160.jsonl
+output: results/position_controlled_160_ablation_results.jsonl
+seed: 242
+cache_dir: cache/huggingface
+require_cuda: true
+use_gpu: true
+thermal:
+  enabled: true
+  pause_temperature_c: 70
+  resume_temperature_c: 60
+  hard_temperature_c: 75
+  cooldown_timeout_seconds: 1800
+budgets: [128, 256, 512, 1024]
+methods:
+  - {name: trimwise_hybrid, ablation: no_mmr}
+  - {name: trimwise_hybrid, ablation: no_evidence_cutoff}
+  - {name: trimwise_hybrid, ablation: fixed_windows}

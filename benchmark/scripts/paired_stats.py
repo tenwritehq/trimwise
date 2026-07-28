@@ -12,10 +12,25 @@ import numpy as np
 from benchmark.datasets.loader import iter_cases
 from benchmark.metrics.evidence import score_case
 
-COMPARATORS = ("llmlingua", "longllmlingua", "recomp_extractive")
+COMPARATORS = {
+    "legacy-v1.1": ("llmlingua", "longllmlingua", "recomp_extractive"),
+    "strict-v1.2": ("llmlingua", "longllmlingua", "recomp_extractive"),
+    "strict-direct-retrieval": (
+        "bm25_128_32_source_order",
+        "embedding_topk_source_order",
+        "embedding_mmr_source_order",
+    ),
+    "strict-ablation": (
+        "trimwise_hybrid_no_mmr",
+        "trimwise_hybrid_no_evidence_cutoff",
+        "trimwise_hybrid_fixed_windows",
+    ),
+}
 REFERENCE_SETS = {
     "legacy-v1.1": ("trimwise_hybrid",),
     "strict-v1.2": ("trimwise_lexical", "trimwise_hybrid"),
+    "strict-direct-retrieval": ("trimwise_lexical", "trimwise_hybrid"),
+    "strict-ablation": ("trimwise_hybrid",),
 }
 METRIC_SETS = {
     "legacy-v1.1": ("case_pass",),
@@ -24,28 +39,42 @@ METRIC_SETS = {
         "local_ordered_80_case_pass",
         "local_ordered_90_case_pass",
     ),
+    "strict-direct-retrieval": (
+        "normalized_contiguous_case_pass",
+        "local_ordered_80_case_pass",
+        "local_ordered_90_case_pass",
+    ),
+    "strict-ablation": (
+        "normalized_contiguous_case_pass",
+        "local_ordered_80_case_pass",
+        "local_ordered_90_case_pass",
+    ),
 }
 DEFAULT_OUTPUTS = {
     "legacy-v1.1": "results/position_controlled_160_paired_stats.csv",
     "strict-v1.2": "results/position_controlled_160_evidence_sensitivity_v1_2_paired_stats.csv",
+    "strict-direct-retrieval": "results/position_controlled_160_direct_retrieval_paired_stats.csv",
+    "strict-ablation": "results/position_controlled_160_ablation_paired_stats.csv",
 }
 BOOTSTRAP_SAMPLES = 10_000
 SEED = 20260728
 
 
 def _results_by_key(
-    path: Path,
+    paths: list[Path],
     cases: dict[str, dict[str, Any]],
     metrics: tuple[str, ...],
     references: tuple[str, ...],
+    comparators: tuple[str, ...],
 ) -> dict[tuple[str, str, int, str], bool]:
     """Load successful query-aware outcomes keyed by case, method, budget, and metric.
 
     Args:
-        path: Compression JSONL produced by the benchmark runner.
+        paths: Compression JSONLs produced by the benchmark runner.
         cases: Dataset cases keyed by stable case identifier.
         metrics: Scorer fields to retain for the requested analysis.
         references: Trimwise configurations included in the requested analysis.
+        comparators: Baselines compared with each Trimwise configuration.
 
     Returns:
         Re-scored binary outcomes for the requested query-aware methods and metrics.
@@ -54,27 +83,29 @@ def _results_by_key(
         ValueError: If a row is duplicated, failed, or references an unknown case.
     """
     outcomes: dict[tuple[str, str, int, str], bool] = {}
-    with path.open(encoding="utf-8") as source:
-        for line in source:
-            if not line.strip():
-                continue
-            row = json.loads(line)
-            method = str(row.get("method_id"))
-            if method not in {*COMPARATORS, *references} or not row.get("query_aware", False):
-                continue
-            if row.get("status") != "success":
-                raise ValueError(f"paired analysis requires success: {row['case_id']} {method}")
-            case_id = str(row["case_id"])
-            case = cases.get(case_id)
-            if case is None:
-                raise ValueError(f"unknown case: {case_id}")
-            budget = int(row["budget"])
-            scores = score_case(case, str(row["output"]), budget)
-            for metric in metrics:
-                key = case_id, method, budget, metric
-                if key in outcomes:
-                    raise ValueError(f"duplicate compression result: {key}")
-                outcomes[key] = bool(scores[metric])
+    methods = {*comparators, *references}
+    for path in paths:
+        with path.open(encoding="utf-8") as source:
+            for line in source:
+                if not line.strip():
+                    continue
+                row = json.loads(line)
+                method = str(row.get("method_id"))
+                if method not in methods or not row.get("query_aware", False):
+                    continue
+                if row.get("status") != "success":
+                    raise ValueError(f"paired analysis requires success: {row['case_id']} {method}")
+                case_id = str(row["case_id"])
+                case = cases.get(case_id)
+                if case is None:
+                    raise ValueError(f"unknown case: {case_id}")
+                budget = int(row["budget"])
+                scores = score_case(case, str(row["output"]), budget)
+                for metric in metrics:
+                    key = case_id, method, budget, metric
+                    if key in outcomes:
+                        raise ValueError(f"duplicate compression result: {key}")
+                    outcomes[key] = bool(scores[metric])
     return outcomes
 
 
@@ -100,6 +131,7 @@ def _rows(
     case_ids: list[str],
     metrics: tuple[str, ...],
     references: tuple[str, ...],
+    comparators: tuple[str, ...],
     include_metric: bool,
 ) -> list[dict[str, object]]:
     """Build paired Trimwise-versus-adapter statistics for each metric and budget.
@@ -109,6 +141,7 @@ def _rows(
         case_ids: Expected evaluation-case identifiers in stable order.
         metrics: Scorer fields represented in the output rows.
         references: Trimwise configurations represented in the output rows.
+        comparators: Baselines compared with each Trimwise configuration.
         include_metric: Whether the output needs a metric identifier column.
 
     Returns:
@@ -121,7 +154,7 @@ def _rows(
     for metric in metrics:
         for budget in (128, 256, 512, 1024):
             for reference_method in references:
-                for comparator_method in COMPARATORS:
+                for comparator_method in comparators:
                     reference = np.array(
                         [
                             outcomes[(case_id, reference_method, budget, metric)]
@@ -161,7 +194,7 @@ def _rows(
 def main() -> None:
     """Write fixed-seed paired bootstrap statistics for one named metric set."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default="results/position_controlled_160_results.jsonl")
+    parser.add_argument("--input", action="append")
     parser.add_argument("--dataset", default="data/position_controlled_160.jsonl")
     parser.add_argument("--metric-set", choices=tuple(METRIC_SETS), default="legacy-v1.1")
     parser.add_argument("--output")
@@ -169,13 +202,18 @@ def main() -> None:
     cases = {case["case_id"]: case for case in iter_cases(args.dataset)}
     metrics = METRIC_SETS[args.metric_set]
     references = REFERENCE_SETS[args.metric_set]
-    outcomes = _results_by_key(Path(args.input), cases, metrics, references)
+    comparators = COMPARATORS[args.metric_set]
+    input_paths = args.input or ["results/position_controlled_160_results.jsonl"]
+    outcomes = _results_by_key(
+        [Path(path) for path in input_paths], cases, metrics, references, comparators
+    )
     rows = _rows(
         outcomes,
         sorted(cases),
         metrics,
         references,
-        include_metric=args.metric_set == "strict-v1.2",
+        comparators,
+        include_metric=args.metric_set != "legacy-v1.1",
     )
     destination = Path(args.output or DEFAULT_OUTPUTS[args.metric_set])
     destination.parent.mkdir(parents=True, exist_ok=True)

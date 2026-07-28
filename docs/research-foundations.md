@@ -278,9 +278,10 @@ fragments; structural and lexical use require no compression model; and the fina
 is measured against the caller's exact budget. A position-controlled in-repository benchmark now
 compares query-aware Trimwise configurations with the LLMLingua GPT-2 token-pruning adapter, the
 LongLLMLingua GPT-2 single-context adapter, and the RECOMP NQ extractive sentence adapter under a
-shared external counter; its scoped evidence-retention results and failure modes are documented in the
-[query-aware benchmark](benchmark.md). The results remain scoped to that benchmark and do not
-establish general downstream answer quality.
+shared external counter. Separate fixed-window retrieval and exploratory component follow-ups test
+the same scoped setting. Their evidence-retention results, component limits, and failure modes are
+documented in the [query-aware benchmark](benchmark.md). The results remain scoped to that benchmark
+and do not establish general downstream answer quality.
 
 ### Selective Context
 

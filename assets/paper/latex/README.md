@@ -5,8 +5,11 @@ the archived Markdown draft used for the one-time migration.
 
 The manuscript uses the neutral `article` class until a target venue is chosen.
 Its bibliography is `../references.bib`. The two diagrams are committed as
-vector PDFs under `figures/`; the strict v1.2 all-case and cohort charts are read
-directly from `../../../benchmark/reports/evidence-sensitivity-v1-2/`.
+vector PDFs under `figures/`; the strict all-case and cohort charts are read
+directly from `../../../benchmark/reports/evidence-sensitivity-v1-2/`, and the
+direct-retrieval follow-up chart from `../../../benchmark/reports/direct-retrieval-v1/`.
+The exploratory component-study chart is read from
+`../../../benchmark/reports/ablation-v1/`.
 
 With a standard TeX Live installation, build from this directory:
 

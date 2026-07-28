@@ -28,7 +28,7 @@ coverage. That is a safe fallback, not the query-aware benchmark claim below.
 ## Query-aware benchmark results
 
 On a position-controlled 160-case benchmark, each method received the same source and question.
-The v1.2 primary result is **normalized contiguous required-span containment**: every annotated
+The primary result is **normalized contiguous required-span containment**: every annotated
 source span must occur as one contiguous normalized passage, prohibited text must be absent, and
 the output must fit the budget. Trimwise Lexical leads at 128 tokens; Trimwise Hybrid leads from
 256 through 1,024 tokens against the evaluated adapters.
@@ -54,12 +54,17 @@ The local ordered 80% and 90% sensitivity checks preserve the same ordering at e
 is a post-hoc robustness analysis over frozen outputs: it measures complete source-span survival,
 not semantic sufficiency, generated-answer quality, or every configuration in the compared method
 families. Latency is hardware-specific and excludes cold loading and thermal cooldown. The
-[v1.2 protocol](./benchmark/data/manifests/evidence_sensitivity_v1_2_protocol.md),
+[strict metric protocol](./benchmark/data/manifests/evidence_sensitivity_v1_2_protocol.md),
 [frozen manifest](./benchmark/data/manifests/evidence_sensitivity_v1_2_manifest.json), and
 [full sensitivity summary](./benchmark/results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv)
-record the metric, inputs, and all results. The legacy v1.1 bag-of-token case-pass result remains
+record the metric, inputs, and all results. The legacy bag-of-token case-pass result remains
 available as a [historical diagnostic](./benchmark/results/position_controlled_160_summary.csv).
 The local benchmark environment resolves the published 0.2.0 release from PyPI.
+
+An exploratory component study keeps Hybrid fixed while removing MMR, the adaptive evidence cutoff,
+or Markdown-aware segments. On this suite, the cutoff and structural segments help at 128 tokens;
+MMR shows no consistent strict-retention benefit. The full protocol, uncertainty intervals, and
+limits are in the [benchmark documentation](https://trimwise.readthedocs.io/en/latest/benchmark/).
 
 ## A typical use-case
 

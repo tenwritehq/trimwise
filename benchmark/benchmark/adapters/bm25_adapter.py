@@ -98,7 +98,7 @@ class BM25Adapter(TimedAdapter):
         ranked = sorted(range(len(chunks)), key=lambda i: (scores[i], -i), reverse=True)
 
         # Select by relevance first. Only after selection restore source order.
-        selected: list[int] = []
+        selected: dict[int, str] = {}
         used = 0
         marker = "\n[…omitted…]\n"
         marker_cost = count_tokens(marker)
@@ -111,10 +111,10 @@ class BM25Adapter(TimedAdapter):
                 piece = token_prefix(piece, remaining)
             if not piece:
                 continue
-            selected.append(index)
+            selected[index] = piece
             used += count_tokens(piece) + (marker_cost if len(selected) > 1 else 0)
-        output_order = sorted(selected) if self.source_order else selected
-        output = marker.join(chunks[i].text for i in output_order)
+        output_order = sorted(selected) if self.source_order else list(selected)
+        output = marker.join(selected[index] for index in output_order)
         if count_tokens(output) > budget:
             output = token_prefix(output, budget)
         return CompressionResult(

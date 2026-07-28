@@ -46,11 +46,11 @@ METHOD_COLORS = {
     "trimwise_structural": "#0f766e",
     "trimwise_lexical": "#155eef",
     "trimwise_hybrid": "#0f766e",
-    "llmlingua": "#b45309",
-    "llmlingua_queryless": "#b45309",
-    "longllmlingua": "#c2410c",
-    "llmlingua2": "#7e22ce",
-    "recomp_extractive": "#9a3412",
+    "llmlingua": "#cc79a7",
+    "llmlingua_queryless": "#cc79a7",
+    "longllmlingua": "#e69f00",
+    "llmlingua2": "#7b61ff",
+    "recomp_extractive": "#222222",
 }
 
 TASK_GROUPS = {
@@ -1152,7 +1152,7 @@ a {{ color:var(--accent); }} .shell {{ max-width:1680px; margin:auto; padding:0 
 
 
 def _write_index(reports: list[ReportSpec], output_dir: Path) -> None:
-    """Write the small root page linking the two fair comparison reports.
+    """Write the small root page linking available benchmark reports.
 
     Args:
         reports: Fairness tracks that produced report directories.
@@ -1162,13 +1162,22 @@ def _write_index(reports: list[ReportSpec], output_dir: Path) -> None:
         f'<li><a href="{escape(report.directory)}/index.html">{escape(report.title)}</a></li>'
         for report in reports
     )
+    follow_up_links = "".join(
+        f'<li><a href="{directory}/index.html">{label}</a></li>\n'
+        for directory, label in (
+            ("direct-retrieval-v1", "Direct fixed-window retrieval follow-up"),
+            ("ablation-v1", "Exploratory Hybrid component study"),
+        )
+        if output_dir.joinpath(directory, "index.html").is_file()
+    )
     links = (
-        '<li><a href="evidence-sensitivity-v1-2/index.html">v1.2 strict source-span survival</a></li>\n'
+        '<li><a href="evidence-sensitivity-v1-2/index.html">Strict source-span survival</a></li>\n'
+        + follow_up_links
         + links
     )
     output_dir.joinpath("index.html").write_text(
         f"""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Trimwise benchmark reports</title>
-<body style="font:18px/1.5 system-ui,sans-serif;max-width:720px;margin:10vh auto;padding:24px"><h1>Trimwise benchmark reports</h1><p>The v1.2 source-span report is the current strict result. The two v1.1 reports are preserved as historical bag-of-token diagnostics; their scores cannot be compared across question access conditions. Each historical report separates the 135 natural cases from the 25 controlled end relocations.</p><ul>{links}</ul></body></html>""",
+<body style="font:18px/1.5 system-ui,sans-serif;max-width:720px;margin:10vh auto;padding:24px"><h1>Trimwise benchmark reports</h1><p>The strict source-span report is the primary result. The direct-retrieval and component studies are separate follow-ups over the same suite. The two legacy reports are preserved only as historical bag-of-token diagnostics; their scores cannot be compared across question access conditions. Each historical report separates the 135 natural cases from the 25 controlled end relocations.</p><ul>{links}</ul></body></html>""",
         encoding="utf-8",
     )
 

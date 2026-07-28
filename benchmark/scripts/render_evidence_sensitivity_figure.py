@@ -12,9 +12,9 @@ import pandas as pd
 METHODS = (
     ("trimwise_lexical", "Trimwise Lexical", "#155eef"),
     ("trimwise_hybrid", "Trimwise Hybrid", "#0f766e"),
-    ("recomp_extractive", "RECOMP NQ extractive\nsentence adapter", "#9a3412"),
-    ("llmlingua", "LLMLingua GPT-2\ntoken-pruning adapter", "#b45309"),
-    ("longllmlingua", "LongLLMLingua GPT-2\nsingle-context adapter", "#c2410c"),
+    ("recomp_extractive", "RECOMP NQ extractive\nsentence adapter", "#222222"),
+    ("llmlingua", "LLMLingua GPT-2\ntoken-pruning adapter", "#cc79a7"),
+    ("longllmlingua", "LongLLMLingua GPT-2\nsingle-context adapter", "#e69f00"),
 )
 METRIC = "normalized_contiguous_case_pass_rate"
 BUDGETS = (128, 256, 512, 1024)
@@ -589,11 +589,13 @@ def _write_report(
         'and <a href="../../results/'
         'position_controlled_160_evidence_sensitivity_v1_2_paired_stats.csv">'
         "paired bootstrap</a> CSVs "
-        "are released beside it."
+        'are released beside it. The exploratory <a href="../ablation-v1/index.html">'
+        "component study</a> is reported separately."
     )
     docs_references = (
         'See the <a href="../benchmark/">benchmark documentation</a> for the protocol, '
-        "frozen manifest, complete CSVs, and reproduction commands."
+        "frozen manifest, complete CSVs, and reproduction commands. The exploratory "
+        '<a href="ablation.html">component study</a> is reported separately.'
     )
     output_dir.joinpath("index.html").write_text(
         _report_page(
