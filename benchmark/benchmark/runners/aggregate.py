@@ -142,9 +142,20 @@ def main() -> None:
         "metadata_thermal_max_temperature_c",
         "metadata_thermal_hard_limit_event",
         "case_pass",
+        "legacy_case_pass",
         "required_span_coverage",
         "exact_required_span_coverage",
         "exact_required_evidence_success",
+        "normalized_contiguous_required_span_coverage",
+        "normalized_contiguous_required_evidence_success",
+        "normalized_contiguous_case_pass",
+        "local_ordered_required_span_recall",
+        "local_ordered_80_required_span_coverage",
+        "local_ordered_80_required_evidence_success",
+        "local_ordered_80_case_pass",
+        "local_ordered_90_required_span_coverage",
+        "local_ordered_90_required_evidence_success",
+        "local_ordered_90_case_pass",
         "ordered_step_coverage",
         "ordered_step_ordered",
     ]:
@@ -154,6 +165,13 @@ def main() -> None:
         frame["evidence_position"] = "unknown"
     frame["evidence_position"] = frame["evidence_position"].fillna("unknown")
     frame["case_pass"] = frame["status"].eq("success") & frame["case_pass"].eq(True)
+    frame["legacy_case_pass"] = frame["status"].eq("success") & frame["legacy_case_pass"].eq(True)
+    for metric in [
+        "normalized_contiguous_case_pass",
+        "local_ordered_80_case_pass",
+        "local_ordered_90_case_pass",
+    ]:
+        frame[metric] = frame["status"].eq("success") & frame[metric].eq(True)
     summary = (
         frame.groupby(
             ["method_id", "query_aware", "track", "evidence_position", "budget"],
@@ -167,9 +185,38 @@ def main() -> None:
             evidence_f1=("evidence_f1", "mean"),
             all_evidence=("all_required_evidence_success", "mean"),
             case_pass_rate=("case_pass", "mean"),
+            legacy_case_pass_rate=("legacy_case_pass", "mean"),
             required_span_coverage=("required_span_coverage", "mean"),
             exact_required_span_coverage=("exact_required_span_coverage", "mean"),
             exact_required_evidence_success=("exact_required_evidence_success", "mean"),
+            normalized_contiguous_required_span_coverage=(
+                "normalized_contiguous_required_span_coverage",
+                "mean",
+            ),
+            normalized_contiguous_required_evidence_success=(
+                "normalized_contiguous_required_evidence_success",
+                "mean",
+            ),
+            normalized_contiguous_case_pass_rate=("normalized_contiguous_case_pass", "mean"),
+            local_ordered_required_span_recall=("local_ordered_required_span_recall", "mean"),
+            local_ordered_80_required_span_coverage=(
+                "local_ordered_80_required_span_coverage",
+                "mean",
+            ),
+            local_ordered_80_required_evidence_success=(
+                "local_ordered_80_required_evidence_success",
+                "mean",
+            ),
+            local_ordered_80_case_pass_rate=("local_ordered_80_case_pass", "mean"),
+            local_ordered_90_required_span_coverage=(
+                "local_ordered_90_required_span_coverage",
+                "mean",
+            ),
+            local_ordered_90_required_evidence_success=(
+                "local_ordered_90_required_evidence_success",
+                "mean",
+            ),
+            local_ordered_90_case_pass_rate=("local_ordered_90_case_pass", "mean"),
             ordered_step_coverage=("ordered_step_coverage", "mean"),
             ordered_step_ordered=("ordered_step_ordered", "mean"),
             prohibited_phrase_rate=("contains_prohibited_phrase", "mean"),
@@ -195,10 +242,25 @@ def main() -> None:
     )
     track_case_pass = frame.groupby(
         ["method_id", "query_aware", "track", "budget"], as_index=False
-    ).agg(case_pass_rate=("case_pass", "mean"))
+    ).agg(
+        case_pass_rate=("case_pass", "mean"),
+        legacy_case_pass_rate=("legacy_case_pass", "mean"),
+        normalized_contiguous_case_pass_rate=("normalized_contiguous_case_pass", "mean"),
+        local_ordered_80_case_pass_rate=("local_ordered_80_case_pass", "mean"),
+        local_ordered_90_case_pass_rate=("local_ordered_90_case_pass", "mean"),
+    )
     macro_case_pass = track_case_pass.groupby(
         ["method_id", "query_aware", "budget"], as_index=False
-    ).agg(macro_case_pass_rate=("case_pass_rate", "mean"))
+    ).agg(
+        macro_case_pass_rate=("case_pass_rate", "mean"),
+        macro_legacy_case_pass_rate=("legacy_case_pass_rate", "mean"),
+        macro_normalized_contiguous_case_pass_rate=(
+            "normalized_contiguous_case_pass_rate",
+            "mean",
+        ),
+        macro_local_ordered_80_case_pass_rate=("local_ordered_80_case_pass_rate", "mean"),
+        macro_local_ordered_90_case_pass_rate=("local_ordered_90_case_pass_rate", "mean"),
+    )
     summary = summary.merge(macro_case_pass, on=["method_id", "query_aware", "budget"])
     if args.qa_input:
         qa_rows = []

@@ -126,11 +126,43 @@ dataset and result snapshot. It is an integrity record released with the
 [`paper-v1` tagged artifact](https://github.com/tenwritehq/trimwise/tree/paper-v1), not a portable
 performance claim.
 
-**Case pass** requires all required evidence, no prohibited content, and budget compliance. A
-required span passes with exact retention or at least 80% token recall. The aggregate reports
-evidence retention, output tokens, budget violations, latency, CUDA memory, thermal events, and
-method failures. QA answer match is a normalized token-containment measure over saved model
-continuations; it is not a human semantic-correctness evaluation.
+**Legacy v1.1 case pass** requires all required evidence, no prohibited content, and budget
+compliance. In the frozen result, a required span passes with normalized exact retention or at
+least 80% bag-of-token recall anywhere in the complete output. It remains available to reproduce
+the published snapshot, but can credit tokens scattered across unrelated excerpts.
+
+The v1.2 source-evidence analysis is an explicitly **post-hoc robustness analysis** over frozen
+outputs. It measures source-span survival, not semantic sufficiency, downstream answer correctness,
+or general prompt-compression quality. Its strict primary metric is **normalized contiguous
+required-span containment**: the complete required span occurs after case-folding and whitespace
+collapse. The accompanying local ordered 80% and 90% sensitivities require ordered retained tokens
+inside one bounded output-token window. The legacy score and raw byte-for-byte containment remain
+descriptive diagnostics. See the frozen
+[v1.2 protocol](data/manifests/evidence_sensitivity_v1_2_protocol.md) for the exact tokenizer,
+normalization, empty-span handling, aggregation rule, annotation diagnostics, and artifact policy.
+
+After committing the v1.2 scorer and protocol, build its input manifest first. This is CPU-only and
+refuses to run against an uncommitted scorer or protocol:
+
+```bash
+uv run python scripts/build_evidence_sensitivity_manifest.py \
+  --dataset data/position_controlled_160.jsonl \
+  --input results/position_controlled_160_results.jsonl \
+  --output data/manifests/evidence_sensitivity_v1_2_manifest.json
+```
+
+Then generate the parallel v1.2 sensitivity summary without compression or QA calls:
+
+```bash
+uv run python -m benchmark.runners.aggregate \
+  --input results/position_controlled_160_results.jsonl \
+  --dataset data/position_controlled_160.jsonl \
+  --output results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv
+```
+
+The aggregate reports evidence retention, output tokens, budget violations, latency, CUDA memory,
+thermal events, and method failures. QA answer match is a normalized token-containment measure over
+saved model continuations; it is not a human semantic-correctness evaluation.
 
 ## Limits
 
