@@ -268,9 +268,7 @@ def _overall_case_pass_rows(frame: pd.DataFrame, report: ReportSpec) -> pd.DataF
         One case-pass rate per method and budget, weighted by contributing cases.
     """
     rows = _compression_summary_rows(frame)
-    rows = rows[
-        rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)
-    ]
+    rows = rows[rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)]
     return _weighted_rows(rows, ["method_id", "budget"], ["case_pass_rate"], "rows")
 
 
@@ -286,9 +284,7 @@ def _cohort_size(frame: pd.DataFrame, report: ReportSpec, position: str | None =
         Number of source cases in the selected cohort, or zero when absent.
     """
     rows = _compression_summary_rows(frame)
-    rows = rows[
-        rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)
-    ]
+    rows = rows[rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)]
     if position is not None:
         rows = rows[rows["evidence_position"].eq(position)]
     if rows.empty:
@@ -686,9 +682,7 @@ def _render_end_origin_chart(
         values = np.full((len(report.methods), len(cohorts)), np.nan)
         for row_index, method_id in enumerate(report.methods):
             for column_index, cohort in enumerate(cohorts):
-                match = panel[
-                    panel["method_id"].eq(method_id) & panel["end_cohort"].eq(cohort)
-                ]
+                match = panel[panel["method_id"].eq(method_id) & panel["end_cohort"].eq(cohort)]
                 if not match.empty:
                     values[row_index, column_index] = match.iloc[0]["case_pass_rate"]
         axis.imshow(values, vmin=0, vmax=1, cmap="Blues", aspect="auto")
@@ -740,9 +734,7 @@ def _render_qa_chart(
     if rows.empty:
         return None
     models = sorted(rows["qa_model_id"].dropna().unique())
-    figure, axes = plt.subplots(
-        2, 2, figsize=(7.2, 6.8), squeeze=False, sharey=True
-    )
+    figure, axes = plt.subplots(2, 2, figsize=(7.2, 6.8), squeeze=False, sharey=True)
     handles: dict[str, object] = {}
     for index, model_id in enumerate(models):
         axis = axes.flat[index]
@@ -1017,9 +1009,7 @@ def _reliability_markup(frame: pd.DataFrame, report: ReportSpec) -> str:
         HTML table of success, budget, latency, memory, and thermal metrics.
     """
     rows = _compression_summary_rows(frame)
-    rows = rows[
-        rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)
-    ]
+    rows = rows[rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)]
     if rows.empty:
         return ""
     summary = rows.groupby("method_id", as_index=False).agg(
