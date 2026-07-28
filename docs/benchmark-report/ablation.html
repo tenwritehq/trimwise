@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trimwise Hybrid component study</title>
+<body style="font:18px/1.5 system-ui,sans-serif;max-width:1180px;margin:6vh auto;padding:24px;color:#172033">
+<p style="color:#526177;font-weight:700">QUERY-AWARE COMPONENT STUDY</p>
+<h1>What does each Hybrid component contribute?</h1>
+<p>Each variant uses the same 160 sources, questions, budgets, encoder, lexical--semantic fusion,
+source-order reconstruction, strict source-span measure, and thermal-gated runtime. It changes exactly one mechanism:
+MMR becomes relevance-only, the adaptive evidence cutoff is removed, or Markdown-aware source
+segments become exact non-overlapping 128-token windows. No downstream LLM calls are included.</p>
+<img src="../assets/benchmark/ablation_vs_hybrid.svg" alt="Strict case pass versus budget for Trimwise Hybrid and three component variants." style="width:100%;height:auto">
+<table style="border-collapse:collapse;width:100%;margin:20px 0"><thead><tr><th>Configuration</th><th>128</th><th>256</th><th>512</th><th>1,024</th></tr></thead><tbody><tr><th>Trimwise Hybrid</th><td>49.4%</td><td>62.5%</td><td>66.9%</td><td>69.4%</td></tr><tr><th>Hybrid, relevance-only</th><td>51.2%</td><td>61.9%</td><td>66.9%</td><td>69.4%</td></tr><tr><th>Hybrid, no evidence cutoff</th><td>44.4%</td><td>61.9%</td><td>67.5%</td><td>72.5%</td></tr><tr><th>Hybrid, fixed windows</th><td>40.0%</td><td>58.8%</td><td>61.9%</td><td>71.2%</td></tr></tbody></table>
+<h2>Paired strict differences</h2>
+<p>Values are complete Hybrid minus the variant in percentage points; brackets are fixed-suite
+95% paired bootstrap intervals. The 128-token results support the adaptive cutoff and structural
+segments on this suite. MMR has no consistent observed effect, and the higher-budget intervals do
+not distinguish the cutoff or fixed-window variants. This exploratory study does not establish
+universal component effects.</p>
+<table style="border-collapse:collapse;width:100%;margin:20px 0"><thead><tr><th>Paired difference (percentage points)</th><th>128</th><th>256</th><th>512</th><th>1,024</th></tr></thead><tbody><tr><th>Hybrid - Hybrid, relevance-only</th><td>-1.9 [-5.6, +1.9]</td><td>+0.6 [+0.0, +1.9]</td><td>+0.0 [+0.0, +0.0]</td><td>+0.0 [+0.0, +0.0]</td></tr><tr><th>Hybrid - Hybrid, no evidence cutoff</th><td>+5.0 [+1.9, +8.8]</td><td>+0.6 [-1.9, +3.1]</td><td>-0.6 [-5.6, +4.4]</td><td>-3.1 [-8.1, +1.9]</td></tr><tr><th>Hybrid - Hybrid, fixed windows</th><td>+9.4 [+1.2, +17.5]</td><td>+3.8 [-3.8, +11.9]</td><td>+5.0 [-1.9, +11.2]</td><td>-1.9 [-6.2, +1.9]</td></tr></tbody></table>
+</body></html>
