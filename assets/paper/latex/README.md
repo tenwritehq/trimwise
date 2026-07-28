@@ -5,8 +5,8 @@ the archived Markdown draft used for the one-time migration.
 
 The manuscript uses the neutral `article` class until a target venue is chosen.
 Its bibliography is `../references.bib`. The two diagrams are committed as
-vector PDFs under `figures/`; the v1.2 query-aware result chart is read directly
-from `../../../benchmark/reports/evidence-sensitivity-v1-2/normalized_contiguous_vs_budget.png`.
+vector PDFs under `figures/`; the strict v1.2 all-case and cohort charts are read
+directly from `../../../benchmark/reports/evidence-sensitivity-v1-2/`.
 
 With a standard TeX Live installation, build from this directory:
 

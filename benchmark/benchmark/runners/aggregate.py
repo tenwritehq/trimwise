@@ -76,6 +76,21 @@ def _filter_rows_by_position_origin(
     return [row for row in rows if str(row.get("case_id")) in case_ids]
 
 
+def _filter_rows_by_case_prefix(
+    rows: list[dict[str, object]], prefixes: list[str]
+) -> list[dict[str, object]]:
+    """Exclude saved rows whose stable case identifier has a requested prefix.
+
+    Args:
+        rows: Saved compression or QA rows keyed by case identifier.
+        prefixes: One or more stable case-ID prefixes to exclude.
+
+    Returns:
+        Rows not associated with an excluded case-ID prefix.
+    """
+    return [row for row in rows if not str(row.get("case_id", "")).startswith(tuple(prefixes))]
+
+
 def _rescore_compression_rows(
     rows: list[dict[str, object]], cases: dict[str, dict[str, Any]]
 ) -> None:
@@ -118,6 +133,7 @@ def main() -> None:
     parser.add_argument("--qa-input", action="append", default=[])
     parser.add_argument("--output", default="results/position_controlled_160_summary.csv")
     parser.add_argument("--position-origin", choices=POSITION_ORIGINS)
+    parser.add_argument("--exclude-case-prefix", action="append", default=[])
     args = parser.parse_args()
 
     with Path(args.input).open("r", encoding="utf-8") as source:
@@ -127,6 +143,10 @@ def main() -> None:
     )
     if args.position_origin:
         rows = _filter_rows_by_position_origin(rows, cases or {}, args.position_origin)
+    if args.exclude_case_prefix:
+        rows = _filter_rows_by_case_prefix(rows, args.exclude_case_prefix)
+    if not rows:
+        raise ValueError("selected compression rows are empty")
     if any(row.get("status") == "success" and "output" in row for row in rows):
         cases = _case_lookup(args.dataset)
         _rescore_compression_rows(rows, cases)
@@ -270,6 +290,10 @@ def main() -> None:
                 qa_rows.extend(json.loads(line) for line in source if line.strip())
         if args.position_origin:
             qa_rows = _filter_rows_by_position_origin(qa_rows, cases or {}, args.position_origin)
+        if args.exclude_case_prefix:
+            qa_rows = _filter_rows_by_case_prefix(qa_rows, args.exclude_case_prefix)
+        if not qa_rows:
+            raise ValueError("selected QA rows are empty")
         if any(row.get("qa_status") == "success" and "qa_output" in row for row in qa_rows):
             _rescore_qa_rows(qa_rows, cases or _case_lookup(args.dataset))
         qa_frame = pd.DataFrame(qa_rows)

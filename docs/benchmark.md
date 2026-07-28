@@ -34,6 +34,15 @@ Trimwise Lexical is the highest observed method at 128 tokens. Trimwise Hybrid i
 through 1,024 tokens. The two local ordered-retention sensitivity checks—80% and 90% ordered
 recall inside one reference-length output window—preserve that ordering at every tested budget.
 
+The report also separates the 135 natural-placement cases from the 25 controlled end relocations.
+On the natural-only sensitivity, Hybrid passes 63.0% at 256 tokens against 26.7% for the RECOMP NQ
+extractive sentence adapter; its 70.4% versus 30.4% result at 1,024 tokens has the same ordering.
+That natural subset is not position-balanced because it contains only 15 natural end cases. A
+separate 150-case sensitivity removes every source excerpt taken from Trimwise itself; Hybrid still
+passes 63.3% at 256 tokens and 67.3% at 1,024 tokens.
+
+![Strict case pass is reported separately for natural placement and controlled relocation cohorts.](assets/benchmark/natural_vs_relocated.png)
+
 ### What this result means
 
 The strict metric was specified after a review found that the original scorer could credit
@@ -79,6 +88,9 @@ its end stratum has only 15 cases, so it is not position-balanced.
 The comparison is against the exact adapters named above, not every configuration in the
 LLMLingua, LongLLMLingua, or RECOMP families. The RECOMP NQ extractive sentence adapter is built
 around the released checkpoint, not a reproduction of RECOMP's full retrieval and training pipeline.
+The relocation cohort is a source-preserving construction diagnostic: moving evidence also changes
+its neighboring text and the remaining source composition, so it is not interpreted as a pure causal
+effect of position.
 These results do not establish performance for every language, document type, private corpus,
 production agent workflow, or downstream model.
 
@@ -92,7 +104,10 @@ summary is sufficient to inspect every reported metric without making GPU or API
 - [v1.2 metric protocol](https://github.com/tenwritehq/trimwise/blob/main/benchmark/data/manifests/evidence_sensitivity_v1_2_protocol.md)
 - [v1.2 frozen input manifest](https://github.com/tenwritehq/trimwise/blob/main/benchmark/data/manifests/evidence_sensitivity_v1_2_manifest.json)
 - [v1.2 complete sensitivity summary](https://github.com/tenwritehq/trimwise/blob/main/benchmark/results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv)
+- [v1.2 natural-only sensitivity](https://github.com/tenwritehq/trimwise/blob/main/benchmark/results/position_controlled_160_evidence_sensitivity_v1_2_natural_only_summary.csv)
+- [v1.2 self-source-excluded sensitivity](https://github.com/tenwritehq/trimwise/blob/main/benchmark/results/position_controlled_160_evidence_sensitivity_v1_2_without_self_sources_summary.csv)
+- [v1.2 paired bootstrap intervals](https://github.com/tenwritehq/trimwise/blob/main/benchmark/results/position_controlled_160_evidence_sensitivity_v1_2_paired_stats.csv)
 - [Historical v1.1 report and source-only diagnostic](https://github.com/tenwritehq/trimwise/tree/paper-v1.1/benchmark/reports)
-- [Versioned paper and PDF](https://github.com/tenwritehq/trimwise/releases/tag/paper-v1.2)
+- [Versioned paper and PDF](https://github.com/tenwritehq/trimwise/releases/tag/paper-v1.3)
 
 For the selection methods behind these results, see [Research Foundations](research-foundations.md).
