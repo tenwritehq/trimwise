@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 FULL_PROMPT_METHOD = "full_context"
+LEGACY_CASE_PASS_LABEL = "Legacy v1.1 case-pass rate"
 POSITION_ORDER = ("beginning", "middle", "end", "multiple")
 COMPRESSION_GROUP_COLUMNS = (
     "method_id",
@@ -32,11 +33,11 @@ METHOD_LABELS = {
     "trimwise_structural": "Trimwise Structural",
     "trimwise_lexical": "Trimwise Lexical",
     "trimwise_hybrid": "Trimwise Hybrid",
-    "llmlingua": "LLMLingua",
-    "llmlingua_queryless": "LLMLingua (no question)",
-    "longllmlingua": "LongLLMLingua",
+    "llmlingua": "LLMLingua GPT-2 token-pruning adapter",
+    "llmlingua_queryless": "LLMLingua GPT-2 token-pruning adapter (no question)",
+    "longllmlingua": "LongLLMLingua GPT-2 single-context adapter",
     "llmlingua2": "LLMLingua2",
-    "recomp_extractive": "RECOMP",
+    "recomp_extractive": "RECOMP NQ extractive sentence adapter",
 }
 
 METHOD_COLORS = {
@@ -83,8 +84,8 @@ REPORTS = (
     ReportSpec(
         query_aware=True,
         directory="query-aware",
-        title="Context selection with a question",
-        lede="Every method receives the same source and question. These results show how well each one keeps the source material needed for the task.",
+        title="Historical v1.1 context selection with a question",
+        lede="Every method receives the same source and question. This archived report uses the permissive v1.1 bag-of-token case-pass metric; see the v1.2 sensitivity report for the strict source-span result.",
         methods=(
             "trimwise_lexical",
             "trimwise_hybrid",
@@ -96,8 +97,8 @@ REPORTS = (
     ReportSpec(
         query_aware=False,
         directory="queryless",
-        title="Context selection without a question",
-        lede="Every method receives only the source. The question is used later, after the text has been shortened.",
+        title="Historical v1.1 context selection without a question",
+        lede="Every method receives only the source. The question is used later, after the text has been shortened. This archived report uses the v1.1 metric.",
         methods=(
             "naive_first_n",
             "head_tail",
@@ -469,14 +470,14 @@ def _render_utility_chart(
         handles[_method_label(method_id)] = line
     axis.set_ylim(0, 1)
     axis.set_xlabel("Maximum kept text (tokens)")
-    axis.set_ylabel("Task success rate")
+    axis.set_ylabel(LEGACY_CASE_PASS_LABEL)
     axis.set_xticks(sorted(rows["budget"].dropna().unique()))
     axis.grid(axis="y", alpha=0.25)
     _save_figure(figure, report_dir / "utility_vs_budget.png", handles)
     return (
         "utility_vs_budget.png",
-        "Primary result: task success at each context size",
-        "Higher is better. Question answering, instructions, procedures, and structured-source tasks have equal weight.",
+        "Historical v1.1 case pass at each context size",
+        "Higher is better under the archived bag-of-token scorer. Question answering, instructions, procedures, and structured-source tasks have equal weight.",
     )
 
 
@@ -519,14 +520,14 @@ def _render_natural_utility_chart(
         handles[_method_label(method_id)] = line
     axis.set_ylim(0, 1)
     axis.set_xlabel("Maximum kept text (tokens)")
-    axis.set_ylabel("Task success rate")
+    axis.set_ylabel(LEGACY_CASE_PASS_LABEL)
     axis.set_title(f"Natural-placement sensitivity (n={case_count}; positions remain unbalanced)")
     axis.set_xticks(sorted(rows["budget"].dropna().unique()))
     axis.grid(axis="y", alpha=0.25)
     _save_figure(figure, report_dir / "natural_only_vs_budget.png", handles)
     return (
         "natural_only_vs_budget.png",
-        "Secondary check: naturally positioned cases only",
+        "Historical v1.1 natural-placement check",
         f"The 25 controlled relocations are excluded. This uses {case_count} saved natural cases; it is not position-balanced because only 15 natural cases have end-position evidence.",
     )
 
@@ -572,12 +573,12 @@ def _render_position_utility_chart(
     for axis in axes[-1]:
         axis.set_xlabel("Maximum kept text (tokens)")
     for axis in axes[:, 0]:
-        axis.set_ylabel("Task success rate")
+        axis.set_ylabel(LEGACY_CASE_PASS_LABEL)
     _save_figure(figure, report_dir / "utility_by_position.png", handles)
     return (
         "utility_by_position.png",
-        "Primary result: task success by source location",
-        "Each panel shows where the needed source text appears. The 40-case end panel combines 15 natural end cases with 25 controlled relocations, which the next figure separates.",
+        "Historical v1.1 case pass by source location",
+        "Each panel shows where the needed source text appears under the archived scorer. The 40-case end panel combines 15 natural end cases with 25 controlled relocations, which the next figure separates.",
     )
 
 
@@ -635,7 +636,7 @@ def _render_position_chart(
         figure.colorbar(
             image,
             ax=axes.ravel().tolist(),
-            label="Task success rate",
+            label=LEGACY_CASE_PASS_LABEL,
             orientation="horizontal",
             fraction=0.06,
             pad=0.17,
@@ -830,11 +831,11 @@ def _render_tradeoff_chart(
         axis.set_xlabel("Time to trim (ms, log scale)")
         axis.grid(alpha=0.25)
         if index == 0:
-            axis.set_ylabel("Task success rate")
+            axis.set_ylabel(LEGACY_CASE_PASS_LABEL)
     _save_figure(figure, report_dir / "utility_vs_latency.png", handles)
     return (
         "utility_vs_latency.png",
-        "Task success and trimming time",
+        "Historical v1.1 case pass and trimming time",
         "Higher and farther left is preferable. Timing comes from the recorded hardware and run conditions.",
     )
 
@@ -892,7 +893,7 @@ def _render_task_chart(
         figure.colorbar(
             image,
             ax=axes.ravel().tolist(),
-            label="Task success rate",
+            label=LEGACY_CASE_PASS_LABEL,
             orientation="horizontal",
             fraction=0.06,
             pad=0.17,
@@ -901,8 +902,8 @@ def _render_task_chart(
     _save_figure(figure, report_dir / "task_breakdown.png")
     return (
         "task_breakdown.png",
-        "Results by task type",
-        "Question answering, following instructions, ordered procedures, and structured source text stay separate rather than being hidden inside one score.",
+        "Historical v1.1 results by task type",
+        "Question answering, following instructions, ordered procedures, and structured source text stay separate rather than being hidden inside one archived score.",
     )
 
 
@@ -1059,9 +1060,9 @@ def _write_guide(report: ReportSpec, report_dir: Path, has_origin_sensitivity: b
     """
     access = "the source and question" if report.query_aware else "only the source"
     primary_metric = (
-        "- **Overall task success**: question answering, instructions, procedures, and structured-source tasks count equally. A result succeeds only when needed source text survives, prohibited text is absent, and the output stays within its limit."
+        "- **Legacy v1.1 overall case pass**: question answering, instructions, procedures, and structured-source tasks count equally. A result succeeds when needed source text survives under the archived bag-of-token scorer, prohibited text is absent, and the output stays within its limit."
         if report.query_aware
-        else "- **Task success by source location**: each curve uses only one 40-case source-location group. A result succeeds only when needed source text survives, prohibited text is absent, and the output stays within its limit."
+        else "- **Legacy v1.1 case pass by source location**: each curve uses only one 40-case source-location group. A result succeeds when needed source text survives under the archived scorer, prohibited text is absent, and the output stays within its limit."
     )
     metric_definitions = (
         (
@@ -1161,9 +1162,13 @@ def _write_index(reports: list[ReportSpec], output_dir: Path) -> None:
         f'<li><a href="{escape(report.directory)}/index.html">{escape(report.title)}</a></li>'
         for report in reports
     )
+    links = (
+        '<li><a href="evidence-sensitivity-v1-2/index.html">v1.2 strict source-span survival</a></li>\n'
+        + links
+    )
     output_dir.joinpath("index.html").write_text(
         f"""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Trimwise benchmark reports</title>
-<body style="font:18px/1.5 system-ui,sans-serif;max-width:720px;margin:10vh auto;padding:24px"><h1>Trimwise benchmark reports</h1><p>Choose whether each method receives the question. Scores from the two pages cannot be compared directly. Each page reports the 135 natural cases separately from the 25 controlled end relocations.</p><ul>{links}</ul></body></html>""",
+<body style="font:18px/1.5 system-ui,sans-serif;max-width:720px;margin:10vh auto;padding:24px"><h1>Trimwise benchmark reports</h1><p>The v1.2 source-span report is the current strict result. The two v1.1 reports are preserved as historical bag-of-token diagnostics; their scores cannot be compared across question access conditions. Each historical report separates the 135 natural cases from the 25 controlled end relocations.</p><ul>{links}</ul></body></html>""",
         encoding="utf-8",
     )
 

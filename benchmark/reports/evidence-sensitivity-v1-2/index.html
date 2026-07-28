@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trimwise benchmark — v1.2 strict source-span survival</title>
+<body style="font:18px/1.5 system-ui,sans-serif;max-width:1100px;margin:6vh auto;
+padding:24px;color:#172033">
+<p style="color:#526177;font-weight:700">POSITION-CONTROLLED EVALUATION SUITE</p>
+<h1>v1.2 strict source-span survival</h1>
+<p style="max-width:75ch;color:#526177">
+Normalized contiguous required-span containment is the post-hoc primary metric over frozen outputs.
+Every annotated source span must survive as one contiguous normalized passage; prohibited content
+and budget violations still fail the case.
+</p>
+<img src="normalized_contiguous_vs_budget.svg"
+     alt="Normalized contiguous required-span containment by output-token budget."
+     style="width:100%;height:auto">
+<table style="border-collapse:collapse;width:100%;margin:28px 0">
+<thead><tr><th style="padding:10px 12px;text-align:left">Evaluated method or adapter</th>
+<th style="padding:10px 12px">128</th><th style="padding:10px 12px">256</th>
+<th style="padding:10px 12px">512</th><th style="padding:10px 12px">1,024</th></tr></thead>
+<tbody><tr><th style="padding:10px 12px;border-bottom:1px solid #d8dee9;text-align:left">Trimwise Lexical</th><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">52.5%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">60.0%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">61.9%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">66.2%</td></tr><tr><th style="padding:10px 12px;border-bottom:1px solid #d8dee9;text-align:left">Trimwise Hybrid</th><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">49.4%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">62.5%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">66.9%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">69.4%</td></tr><tr><th style="padding:10px 12px;border-bottom:1px solid #d8dee9;text-align:left">RECOMP NQ extractive sentence adapter</th><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">27.5%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">30.6%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">35.0%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">35.0%</td></tr><tr><th style="padding:10px 12px;border-bottom:1px solid #d8dee9;text-align:left">LLMLingua GPT-2 token-pruning adapter</th><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">3.1%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">7.5%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">13.8%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">22.5%</td></tr><tr><th style="padding:10px 12px;border-bottom:1px solid #d8dee9;text-align:left">LongLLMLingua GPT-2 single-context adapter</th><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">0.6%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">4.4%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">6.9%</td><td style="padding:10px 12px;border-bottom:1px solid #d8dee9">16.2%</td></tr></tbody></table>
+<p>
+The local ordered 80% and 90% sensitivity checks preserve the same ordering at every budget.
+See the <a href="../../data/manifests/evidence_sensitivity_v1_2_protocol.md">protocol</a>,
+<a href="../../data/manifests/evidence_sensitivity_v1_2_manifest.json">frozen manifest</a>, and
+<a href="../../results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv">
+complete summary</a>.
+</p>
+</body>
+</html>

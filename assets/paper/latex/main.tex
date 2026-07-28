@@ -134,10 +134,13 @@ selects a diverse subset under a strict configurable budget, restores
 source order, and returns original-input character spans for retained
 text. We evaluate query-aware selection on a 160-case,
 position-controlled suite with required evidence at the beginning,
-middle, end, or multiple locations. At 128/256/512/1,024-token
-ceilings, Trimwise Hybrid obtains 50.6/63.8/66.9/69.4\% case pass,
-compared with 33.1/38.1/48.1/55.6\% for the closest evaluated
-comparator, an extractive RECOMP-style adapter. The evaluation also
+middle, end, or multiple locations. A post-hoc robustness analysis over
+the frozen outputs uses normalized contiguous required-span containment:
+at 128/256/512/1,024-token ceilings, the best Trimwise configuration
+obtains 52.5/62.5/66.9/69.4\%, compared with
+27.5/30.6/35.0/35.0\% for the RECOMP NQ extractive sentence adapter.
+The same ordering holds under local ordered-retention sensitivity
+checks. The evaluation also
 identifies difficult settings: multiple-evidence and
 instruction-survival cases, and source-only selection where simple
 positional baselines are stronger. Trimwise is intended as a
@@ -1165,7 +1168,8 @@ define the main evaluation and its reporting boundaries.
 \textbf{RQ1 --- Evidence preservation and task utility.} Under a shared
 query and token budget, how often does each method retain the required
 source evidence and satisfy the case-level task conditions? The primary
-source-level outcome is case pass: all required evidence must survive,
+source-level outcome is normalized contiguous required-span containment:
+all required evidence must survive as complete normalized passages,
 prohibited content must be absent, and the output must respect the
 requested budget. Where a case defines an answerable downstream task,
 answer outcomes are reported separately rather than substituted for
@@ -1274,7 +1278,7 @@ is run again for this analysis.
 Contexts range from 1,423 to 100,897 Python characters, with a median of
 9,362 characters. There are 120 cases with one required span, 6 with
 two, 28 with three, and 6 with four. The tracks are not equally sized;
-aggregate case-pass rates weight each of the four position strata
+aggregate primary-metric rates weight each of the four position strata
 equally because the set is balanced, while the separately reported macro
 rate weights task tracks equally. Track-level results remain necessary
 to expose task-specific failure modes. The corpus has no
@@ -1305,19 +1309,20 @@ one access condition is better than the other.
 The main comparison is deliberately limited to methods that accept a
 case query and were run through the same compression runner on the same
 source strings, budgets, and post-hoc token counter. It contains
-Trimwise Lexical, Trimwise Hybrid, original LLMLingua, LongLLMLingua,
-and an extractive RECOMP-style adapter. Trimwise Lexical uses its
-built-in BM25 relevance path; Trimwise Hybrid adds the managed embedding
-backend and hybrid fusion described in Section 4. LLMLingua and
-LongLLMLingua are invoked through \texttt{llmlingua==0.2.2} with
-\texttt{openai-community/gpt2} on CUDA. The original LLMLingua adapter
-enables token-level filtering and preserves original order; the
-LongLLMLingua adapter enables context- and token-level filtering, uses
-\texttt{dynamic\_context\_compression\_ratio=0.3}, and permits its
+Trimwise Lexical, Trimwise Hybrid, an LLMLingua GPT-2 token-pruning
+adapter, a LongLLMLingua GPT-2 single-context adapter, and a RECOMP NQ
+extractive sentence adapter. Trimwise Lexical uses its built-in BM25
+relevance path; Trimwise Hybrid adds the managed embedding backend and
+hybrid fusion described in Section 4. Both LLMLingua adapters are invoked
+through \texttt{llmlingua==0.2.2} with \texttt{openai-community/gpt2} on
+CUDA. The token-pruning adapter enables token-level filtering and
+preserves original order. The single-context adapter passes the complete
+source as one context string, enables context- and token-level filtering,
+uses \texttt{dynamic\_context\_compression\_ratio=0.3}, and permits its
 configured ranked context ordering.
 
-The RECOMP comparator needs a more precise description than its label
-alone conveys. The benchmark loads
+The RECOMP NQ extractive sentence adapter needs a more precise description
+than its family name alone conveys. The benchmark loads
 \texttt{fangyuan/nq\_extractive\_compressor} through Transformers,
 mean-pools its query and sentence representations, ranks source
 sentences by dot product, and greedily packs whole sentences under the
@@ -1415,18 +1420,26 @@ hardware-performance claims.
 
 \subsection{Metrics}\label{metrics}
 
-The primary outcome is \textbf{case pass}. For each required evidence
-item, the scorer records a hit when the item appears after
-case-insensitive whitespace normalization or when the compressor retains
-at least 80\% of its normalized comparison tokens. A case passes only
-when every required item is a hit, no prohibited phrase appears after
-the same normalization, and the \texttt{o200k\_base} output count does
-not exceed the requested budget. This deliberately combines evidence,
-safety, and feasibility: an excerpt that retains a relevant phrase but
-exceeds its allocation is not a usable bounded excerpt. The 80\%
-alternative is an evidence-survival rule, not a claim of exact
-extractive fidelity; exact required-span coverage is reported separately
-through direct source-string inclusion.
+The primary v1.2 outcome is \textbf{normalized contiguous required-span
+containment}. For each required evidence item, the scorer first applies
+case-folding and whitespace collapse. The item passes only when that
+complete normalized string occurs contiguously in the output. A case
+passes only when every required item passes, no prohibited phrase appears
+after the same normalization, and the \texttt{o200k\_base} output count
+does not exceed the requested budget. This measures complete survival of
+the annotated source span; it does not establish byte-for-byte identity,
+semantic sufficiency, or downstream answer quality.
+
+This metric was specified after review identified a weakness in the
+original v1.1 scorer, which accepted 80\% bag-of-token recall anywhere
+in the output. The v1.2 protocol, tokenizer, edge-case behavior, and
+input hashes were committed before the new aggregate was inspected. The
+same frozen compressor outputs are rescored; no compressor or answer
+model is rerun. We also report local ordered 80\% and 90\% sensitivities:
+the scorer finds the best output-token window whose length equals the
+reference length and tests ordered-token LCS recall within that window.
+The historical v1.1 score remains a diagnostic only and is never used as
+the primary result below.
 
 We report token-overlap recall, precision, and F1 between the
 concatenated required evidence and the compressor output, required-span
@@ -1465,16 +1478,15 @@ and any application-specific prompt assembly.
 \subsection{Statistical Analysis}\label{statistical-analysis}
 
 The unit of comparison is a case at a fixed method, access condition,
-and budget. The principal paired comparison contrasts Trimwise Hybrid
-with LLMLingua, LongLLMLingua, and the RECOMP-style adapter on
-query-aware case pass across all 160 position-controlled cases. For each
-of the four budgets, we compute the paired difference in pass rates and
-a two-sided 95\% percentile-bootstrap interval from 10,000 resamples of
-the 160 case pairs, using NumPy's \texttt{default\_rng(20260728)}. The
-paired analysis re-scores the saved compression outputs with the current
-evidence scorer, rather than relying on stale aggregate columns, and
-writes a CSV containing the paired wins and losses as well as the
-interval.
+and budget. The released paired comparison is a historical v1.1
+diagnostic. It contrasts Trimwise Hybrid with the LLMLingua GPT-2
+token-pruning adapter, the LongLLMLingua GPT-2 single-context adapter,
+and the RECOMP NQ extractive sentence adapter on query-aware
+bag-of-token case pass across all 160 position-controlled cases. For
+each budget, it computes the paired difference in pass rates and a
+two-sided 95\% percentile-bootstrap interval from 10,000 resamples of
+the 160 case pairs, using NumPy's \texttt{default\_rng(20260728)}. It is
+not an interval for the post-hoc v1.2 primary metric.
 
 These intervals quantify variation from resampling this fixed evaluation
 suite. They do not estimate variance across independent documents,
@@ -1483,9 +1495,8 @@ The dataset and compression configuration were frozen before the run,
 but the paired bootstrap analysis was added after result collection; it
 is therefore a transparent descriptive analysis, not a preregistered
 confirmatory test. We report no p-values, significance stars, or
-multiple-comparison-adjusted claims. The 12 intervals (three comparators
-at four budgets) are shown as effect-size uncertainty, not as a license
-to claim general superiority.
+multiple-comparison-adjusted claims. The 12 historical intervals are
+effect-size context, not a license to claim general superiority.
 
 All 6,400 compression rows completed successfully, so no row required a
 missing-data rule. In a future rerun, an unsuccessful compressor call
@@ -1540,58 +1551,45 @@ configuration, and runtime.
 \subsection{Query-Aware Source-Evidence
 Results}\label{query-aware-source-evidence-results}
 
-Table 1 reports case pass over all 160 cases. Both Trimwise strategies
-exceed the three query-aware comparators at every listed budget. At 128
-tokens, Lexical has the highest observed rate (53.8\%); from 256 to
-1,024 tokens, Hybrid has the highest observed rate (63.8\%, 66.9\%, and
-69.4\%). RECOMP is the closest comparator at each budget, reaching
-55.6\% at 1,024 tokens. The original LLMLingua and LongLLMLingua recover
-more cases as the ceiling grows, but their observed rates remain lower
-on this suite.
+Table 1 reports the v1.2 primary metric over all 160 cases. Both
+Trimwise strategies exceed the three evaluated query-aware adapters at
+every listed budget. At 128 tokens, Lexical has the highest observed
+rate (52.5\%); from 256 to 1,024 tokens, Hybrid has the highest observed
+rate (62.5\%, 66.9\%, and 69.4\%). The RECOMP NQ extractive sentence
+adapter is the closest evaluated comparator, reaching 35.0\% at 512 and
+1,024 tokens. The two local ordered-retention sensitivities preserve
+this ordering at every budget; their complete values and continuous
+recall are in the frozen v1.2 summary.
 
 {\def\LTcaptype{none} % do not increment counter
-\begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.2000}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}@{}}
+\begin{longtable}[]{@{}p{0.36\linewidth}rrrr@{}}
 \toprule\noalign{}
-\begin{minipage}[b]{\linewidth}\raggedright
 Method
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-128
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-256
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-512
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-1,024
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-Budget violations
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-Median warm trim time
-\end{minipage} \\
+& 128 & 256 & 512 & 1,024 \\
 \midrule\noalign{}
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-Trimwise Lexical & 53.8\% & 61.3\% & 62.5\% & 66.3\% & 0.0\% & 6.4 ms \\
-Trimwise Hybrid & 50.6\% & 63.8\% & 66.9\% & 69.4\% & 0.0\% & 42.8 ms \\
-RECOMP extractive & 33.1\% & 38.1\% & 48.1\% & 55.6\% & 0.0\% &
-126.2 ms \\
-LLMLingua & 3.8\% & 8.1\% & 15.6\% & 39.4\% & 30.6\% & 168.0 ms \\
-LongLLM\allowbreak Lingua & 0.6\% & 5.0\% & 8.1\% & 23.1\% & 55.8\% & 340.7 ms \\
+Trimwise Lexical & \textbf{52.5\%} & 60.0\% & 61.9\% & 66.2\% \\
+Trimwise Hybrid & 49.4\% & \textbf{62.5\%} & \textbf{66.9\%} & \textbf{69.4\%} \\
+RECOMP NQ extractive sentence adapter & 27.5\% & 30.6\% & 35.0\% & 35.0\% \\
+LLMLingua GPT-2 token-pruning adapter & 3.1\% & 7.5\% & 13.8\% & 22.5\% \\
+LongLLMLingua GPT-2 single-context adapter & 0.6\% & 4.4\% & 6.9\% & 16.2\% \\
 \end{longtable}
 }
 
-Table 1: Query-aware case-pass rate over 160 position-controlled cases.
-Warm trim time excludes calls marked as model-cold and excludes thermal
-waiting; it remains machine-specific.
+Table 1: Query-aware normalized contiguous required-span containment over
+160 position-controlled cases. A passing case also has no prohibited content
+and fits the requested budget. The table is a post-hoc rescore of frozen
+outputs, not a new compressor run.
 
-Aggregate rates conceal substantial track variation. At 256 tokens,
+The corresponding median warm trim times are 6.4 ms for Lexical, 42.8 ms
+for Hybrid, 126.2 ms for the RECOMP adapter, 168.0 ms for the LLMLingua
+adapter, and 340.7 ms for the LongLLMLingua adapter. Warm timing excludes
+model loading and thermal waiting; it remains machine-specific.
+
+The following track breakdown is retained from the historical v1.1
+bag-of-token diagnostic, not the v1.2 primary metric. At 256 tokens,
 Hybrid passes 84.8\% of the evidence-QA track, 73.3\% of the real-source
 track, 70.0\% of the procedure track, and 100\% of the structured track,
 compared with 35.3\% of the adversarial track and 0\% of the instruction
@@ -1604,44 +1602,43 @@ the required output format.
 
 \begin{figure}
 \centering
-\pandocbounded{\includegraphics[keepaspectratio,alt={Equal-track macro case-pass rate by query-aware budget.}]{../../../benchmark/reports/query-aware/utility_vs_budget.png}}
-\caption{Equal-track macro case-pass rate by query-aware budget. This
-track-balanced summary complements the all-case rate over the position-balanced
-160-case set; the aggregates answer different weighting questions.}
+\pandocbounded{\includegraphics[keepaspectratio,alt={Normalized contiguous required-span containment by query-aware output-token budget.}]{../../../benchmark/reports/evidence-sensitivity-v1-2/normalized_contiguous_vs_budget.png}}
+\caption{Normalized contiguous required-span containment by query-aware
+output-token budget. The 160-case all-case rate is the primary v1.2 result;
+the local ordered 80\% and 90\% sensitivity summaries are released alongside
+the figure.}
 \end{figure}
 
 \begin{figure}
 \centering
 \pandocbounded{\includegraphics[keepaspectratio,alt={All-case query-aware pass rate by budget after excluding controlled relocations.}]{../../../benchmark/reports/query-aware/natural_only_vs_budget.png}}
-\caption{Natural-only sensitivity analysis. These all-case rates use the 135
-naturally positioned rows and exclude all 25 controlled relocations. The
-natural subset has only 15 end-position cases, so it is not a position-balanced
-replacement for the primary 160-case controlled diagnostic.}
+\caption{Historical v1.1 natural-only sensitivity analysis. These all-case
+rates use the 135 naturally positioned rows and exclude all 25 controlled
+relocations. The natural subset has only 15 end-position cases, so it is not a
+position-balanced replacement for the primary 160-case controlled diagnostic.}
 \label{fig:natural-only-sensitivity}
 \end{figure}
 
-Increasing the ceiling helps every query-aware comparator, but not to
-the same extent. Hybrid rises from 50.6\% to 69.4\% case pass between
-128 and 1,024 tokens, while RECOMP rises from 33.1\% to 55.6\%.
-LLMLingua shows the largest late-budget change, from 3.8\% to 39.4\%,
-and LongLLMLingua rises from 0.6\% to 23.1\%. RECOMP and LLMLingua gain
-more from additional capacity, although neither overtakes the two
-Trimwise configurations on this suite.
+Increasing the ceiling helps every evaluated adapter, but not to the same
+extent. Hybrid rises from 49.4\% to 69.4\% normalized contiguous
+containment between 128 and 1,024 tokens, while the RECOMP NQ extractive
+sentence adapter rises from 27.5\% to 35.0\%. The LLMLingua GPT-2
+token-pruning adapter rises from 3.1\% to 22.5\%, and the
+LongLLMLingua GPT-2 single-context adapter rises from 0.6\% to 16.2\%.
+Neither overtakes either Trimwise configuration on this suite.
 
-The paired Hybrid--RECOMP case-pass difference is 17.5 percentage points
-at 128 tokens (95\% bootstrap interval 8.8 to 26.3), 25.6 points at 256
-(16.3 to 35.0), 18.8 points at 512 (8.8 to 28.1), and 13.8 points at
-1,024 (5.6 to 21.9). The corresponding intervals against LLMLingua and
-LongLLMLingua are also positive at all four budgets; the complete paired
-table is provided in Appendix B. These intervals describe the selected
-160 cases only, as specified in Section 5.7.
+Appendix B preserves the paired bootstrap analysis from the historical
+v1.1 bag-of-token metric. It is not used to quantify uncertainty for the
+stricter v1.2 result; that distinction prevents a legacy interval from
+being presented as confirmatory evidence for a later post-hoc metric.
 
-The natural-only sensitivity analysis has the same broad ordering without
-claiming position balance. At 256 tokens, Hybrid passes 64.4\% of the 135
-natural cases and Lexical passes 63.7\%, compared with 33.3\% for RECOMP.
-At 1,024 tokens, their rates are 70.4\%, 68.9\%, and 51.1\%, respectively.
-The analysis reuses saved outputs and is descriptive; the smaller natural-end
-subset does not support a separate position-balanced inference.
+The historical v1.1 natural-only sensitivity analysis has the same broad
+ordering without claiming position balance. At 256 tokens, Hybrid passes
+64.4\% of the 135 natural cases and Lexical passes 63.7\%, compared with
+33.3\% for the RECOMP NQ extractive sentence adapter. At 1,024 tokens,
+their rates are 70.4\%, 68.9\%, and 51.1\%, respectively. The analysis
+reuses saved outputs and is descriptive; the smaller natural-end subset does
+not support a separate position-balanced inference.
 
 The additional budget is not always filled. Hybrid's median output is
 126, 253, 253, and 263 tokens at the four ceilings; Lexical's is 126,
@@ -1652,18 +1649,18 @@ evidence. Whether leaving capacity unused is desirable depends on a
 downstream task; its source-level benefit here should not be read as
 proof that a shorter excerpt always produces a better answer.
 
-Position-level results also remain uneven. For Hybrid at 256 tokens,
-case pass is 77.5\% for beginning evidence, 67.5\% for middle evidence,
-65.0\% for end evidence, and 45.0\% for multiple-span evidence. Multiple
-evidence remains the hardest condition at every budget, reaching only
-45.0\% at 1,024 tokens. Balancing positions prevents the beginning
-stratum from concealing this failure mode; it does not make the task
-equally difficult across strata.
+Historical v1.1 position-level results also remain uneven. For Hybrid at
+256 tokens, case pass is 77.5\% for beginning evidence, 67.5\% for middle
+evidence, 65.0\% for end evidence, and 45.0\% for multiple-span evidence.
+Multiple evidence remains the hardest condition at every budget, reaching
+only 45.0\% at 1,024 tokens. Balancing positions prevents the beginning
+stratum from concealing this failure mode; it does not make the task equally
+difficult across strata.
 
 \begin{figure}
 \centering
-\pandocbounded{\includegraphics[keepaspectratio,alt={Query-aware case-pass rates split into natural end, controlled relocated end, and their combined controlled end stratum.}]{../../../benchmark/reports/query-aware/end_origin_breakdown.png}}
-\caption{End-position construction check. Natural end cases (\(n=15\)),
+\pandocbounded{\includegraphics[keepaspectratio,alt={Historical query-aware case-pass rates split into natural end, controlled relocated end, and their combined controlled end stratum.}]{../../../benchmark/reports/query-aware/end_origin_breakdown.png}}
+\caption{Historical v1.1 end-position construction check. Natural end cases (\(n=15\)),
 controlled end relocations (\(n=25\)), and their combined controlled end
 stratum (\(n=40\)) are shown separately for each query-aware method and
 budget. The combined column is a weighted view of the first two columns, not
@@ -1671,14 +1668,15 @@ an independent sample.}
 \label{fig:end-origin-breakdown}
 \end{figure}
 
-The end split reinforces why the 160-case suite is a controlled diagnostic.
-At 256 tokens, natural end cases give Lexical, Hybrid, and RECOMP pass rates
-of 80.0\%, 73.3\%, and 13.3\%, whereas controlled relocations give 48.0\%,
-60.0\%, and 64.0\%. Relocation therefore changes more than a global position
-label for some methods, plausibly through the span's local context and the
-composition of the remaining source. We report the combined 40-case end
-stratum for the balanced primary diagnostic, but do not interpret it as an
-estimate of naturally occurring end-evidence performance.
+The historical end split reinforces why the 160-case suite is a controlled
+diagnostic. At 256 tokens, natural end cases give Lexical, Hybrid, and the
+RECOMP NQ extractive sentence adapter pass rates of 80.0\%, 73.3\%, and
+13.3\%, whereas controlled relocations give 48.0\%, 60.0\%, and 64.0\%.
+Relocation therefore changes more than a global position label for some
+methods, plausibly through the span's local context and the composition of
+the remaining source. We report the combined 40-case end stratum for the
+balanced primary diagnostic, but do not interpret it as an estimate of
+naturally occurring end-evidence performance.
 
 \subsection{Downstream Answer
 Transfer}\label{downstream-answer-transfer}
@@ -1721,7 +1719,7 @@ quality more directly.
 
 \subsection{Source-Only Diagnostic}\label{source-only-diagnostic}
 
-The source-only condition is not pooled with Section 6.1. It makes the
+The historical v1.1 source-only condition is not pooled with Section 6.1. It makes the
 positional weakness of queryless selection visible. At 256 tokens,
 first-\emph{N} passes 90.0\% of beginning-evidence cases but only 2.5\%
 of end cases and 0\% of middle or multiple-evidence cases. Head--tail
@@ -1741,25 +1739,26 @@ paper concerns query-aware source selection.
 Runtime}\label{budget-compliance-and-runtime}
 
 Every one of the 6,400 saved compression calls returned a successful
-runner status. Under the shared counter, LLMLingua exceeded the ceiling
-in 196 of 640 query-aware calls (30.6\%), with a maximum 139-token overflow, and
-LongLLMLingua did so in 357 calls (55.8\%), with a maximum 169-token
-overflow. Both Trimwise methods and the RECOMP-style adapter have zero
+runner status. Under the shared counter, the LLMLingua GPT-2 token-pruning
+adapter exceeded the ceiling in 196 of 640 query-aware calls (30.6\%), with
+a maximum 139-token overflow, and the LongLLMLingua GPT-2 single-context
+adapter did so in 357 calls (55.8\%), with a maximum 169-token overflow.
+Both Trimwise methods and the RECOMP NQ extractive sentence adapter have zero
 measured violations. Their mean utilization differs: 72.1\% for Lexical,
-69.8\% for Hybrid, and 99.3\% for RECOMP.
+69.8\% for Hybrid, and 99.3\% for the RECOMP adapter.
 
 On the recorded machine, warm median trim time is 6.4 ms for Lexical,
-42.8 ms for Hybrid, 126.2 ms for RECOMP, 168.0 ms for LLMLingua, and
-340.7 ms for LongLLMLingua. Median per-call CUDA peak allocated memory
-is 343 MB for the Trimwise paths, 472 MB for RECOMP, 1,475 MB for
-LLMLingua, and 1,193 MB for LongLLMLingua. These figures include the
-benchmark adapters and their resident framework state, and p95 latency
-remains large for the model-backed methods (156 ms, 1,442 ms, 1,161 ms,
-and 2,252 ms respectively for Hybrid, RECOMP, LLMLingua, and
-LongLLMLingua). These measurements include the adapters and resident
-framework state. They characterize the documented runtime configuration;
-portable speed or memory estimates require reproduction on a specified
-machine.
+42.8 ms for Hybrid, 126.2 ms for the RECOMP adapter, 168.0 ms for the
+LLMLingua adapter, and 340.7 ms for the LongLLMLingua adapter. Median
+per-call CUDA peak allocated memory is 343 MB for the Trimwise paths,
+472 MB for the RECOMP adapter, 1,475 MB for the LLMLingua adapter, and
+1,193 MB for the LongLLMLingua adapter. These figures include the benchmark
+adapters and their resident framework state, and p95 latency remains large
+for the model-backed methods (156 ms, 1,442 ms, 1,161 ms, and 2,252 ms
+respectively for Hybrid, the RECOMP adapter, the LLMLingua adapter, and the
+LongLLMLingua adapter). They characterize the documented runtime
+configuration; portable speed or memory estimates require reproduction on a
+specified machine.
 
 \section{Analysis}\label{analysis}
 
@@ -1771,14 +1770,15 @@ normalized lexical and semantic scores, and can use dense similarity
 during MMR. Their observed difference is consequently a
 configuration-level effect, not an estimate of the individual
 contributions of embeddings, score fusion, or dense diversity. The
-comparisons with sentence-level RECOMP, token-pruning LLMLingua, and
-LongLLMLingua likewise combine differences in algorithm and
+comparisons with the RECOMP NQ extractive sentence adapter, the
+LLMLingua GPT-2 token-pruning adapter, and the LongLLMLingua GPT-2
+single-context adapter likewise combine differences in algorithm and
 implementation stack.
 
 The comparison still informs configuration choice on the evaluated
 workload: Lexical is fastest and has the highest observed 128-token
-case-pass rate, while Hybrid is modestly stronger at larger ceilings. An
-ablation study would hold the source corpus and all other choices fixed
+normalized contiguous containment rate, while Hybrid is stronger at larger
+ceilings. An ablation study would hold the source corpus and all other choices fixed
 while varying segmentation granularity, lexical score, semantic score,
 hybrid fusion, MMR, query-aware evidence cutoff, or source-order
 reconstruction one at a time.
@@ -1786,9 +1786,9 @@ reconstruction one at a time.
 \subsection{Observed Failure Modes}\label{observed-failure-modes}
 
 The results reveal four failure modes that matter more than the
-aggregate curve. First, multiple required spans are difficult: Hybrid
-reaches only 45.0\% case pass in that stratum from 256 through 1,024
-tokens. A single relevance-ranked fragment can be highly useful while
+aggregate curve. First, multiple required spans are difficult: in the
+historical v1.1 diagnostic, Hybrid reaches only 45.0\% case pass in that
+stratum from 256 through 1,024 tokens. A single relevance-ranked fragment can be highly useful while
 another necessary fragment is remote, weakly lexical, or excluded by the
 evidence cutoff. Source-order reconstruction makes the selected pieces
 readable; it does not solve the set-coverage problem.
@@ -1805,13 +1805,13 @@ fails its sole required span. The failure is distinct from positional
 truncation: the selector retrieves a semantically related policy
 constraint that is insufficient for the task.
 
-Third, the strict case-pass conjunction makes partial success visible as
+Third, the strict v1.2 case conjunction makes partial success visible as
 failure. A method that retains three out of four required items receives
-zero case pass, even though its evidence F1 may be nonzero. That is
-appropriate for tasks requiring every listed item, but it means the
-metric should not be read as a smooth estimate of general relevance. The
-evidence-F1 values and per-span coverage in the raw output are necessary
-companions to the binary headline.
+zero source-span-survival pass, even though its evidence F1 may be
+nonzero. That is appropriate for tasks requiring every listed item, but it
+means the metric should not be read as a smooth estimate of general
+relevance. The evidence-F1 values and per-span coverage in the raw output
+are necessary companions to the binary headline.
 
 Fourth, generated answers can fail despite retained evidence or succeed
 despite compression failure. The full-context reference's low
@@ -1833,12 +1833,13 @@ Head--tail is the strongest source-only method in the 160-case aggregate
 at every tested ceiling, because it explicitly covers both extremes.
 
 There is also a query-aware version of this trade-off. Lexical has a
-higher observed case-pass rate than Hybrid at the 128-token ceiling and
-is about seven times faster in median warm trimming time. If a query
+higher observed normalized contiguous containment rate than Hybrid at the
+128-token ceiling and is about seven times faster in median warm trimming
+time. If a query
 shares distinctive terms with a short required span, BM25-style ranking
 may be enough; a semantic backend adds cost without a guaranteed
-benefit. At larger budgets, RECOMP closes part of the gap and uses
-nearly all available capacity. Applications whose task rewards broad
+benefit. At larger budgets, the RECOMP NQ extractive sentence adapter closes
+part of the gap and uses nearly all available capacity. Applications whose task rewards broad
 retained coverage rather than concise exact evidence may reasonably
 choose that trade-off after validating it on their own documents.
 
@@ -1926,10 +1927,10 @@ failure further shows that a query can be insufficiently specific for a
 required operational rule.
 
 Baseline behavior depends on adapter choices, internal tokenizers,
-checkpoint identifiers, and hardware. The RECOMP comparator is an
-extractive adapter around a released checkpoint. The released runtime
-manifest records the run's hardware and package state; reported latency
-also includes the observed cache and process state. Finally, one
+checkpoint identifiers, and hardware. The RECOMP NQ extractive sentence
+adapter is built around a released checkpoint. The released runtime manifest
+records the run's hardware and package state; reported latency also includes
+the observed cache and process state. Finally, one
 downstream API completion per context does not separate selector quality
 from model sampling behavior. Independent reproduction on additional
 task suites is needed to assess how these factors transfer.
@@ -1943,13 +1944,13 @@ text and source order, returns original Python-string spans, and
 distinguishes omission markers from source content.
 
 On the 160-case position-controlled query-aware evaluation, Trimwise
-Lexical and Hybrid achieved higher observed source-evidence case-pass
-rates than the evaluated LLMLingua, LongLLMLingua, and RECOMP-style
-comparators at 128, 256, 512, and 1,024 tokens. Hybrid's paired
-case-pass differences against RECOMP remained positive under
-within-suite bootstrap intervals. The same evaluation exposes
-instruction-survival and multiple-span failures, while head--tail is
-stronger in the source-only condition.
+Lexical and Hybrid achieved higher observed normalized contiguous
+required-span containment than the evaluated LLMLingua GPT-2
+token-pruning adapter, LongLLMLingua GPT-2 single-context adapter, and
+RECOMP NQ extractive sentence adapter at 128, 256, 512, and 1,024 tokens.
+The same ordering holds under local ordered 80\% and 90\% sensitivities.
+The evaluation also exposes instruction-survival and multiple-span
+failures, while head--tail is stronger in the source-only condition.
 
 These findings support query-aware, source-faithful selection for prompt
 assembly from a known source under a hard budget. Priority next steps are
@@ -2005,16 +2006,26 @@ system has been validated on sensitive institutional material.
 
 \section{Artifact Availability}\label{artifact-availability}
 
-The immutable research artifact is the annotated
+The immutable v1.1 research artifact is the annotated
 \href{https://github.com/tenwritehq/trimwise/tree/paper-v1.1}{\texttt{paper-v1.1}
-tag in the Trimwise repository}. It contains the Trimwise implementation; the
-frozen source and 160-case position-controlled
-datasets; source, method, and runtime manifests; raw compression and
-downstream-QA JSONL rows; aggregate summaries and paired statistics; the
-HTML reports and figures; and the manuscript source. The reproduction commands
-are recorded in \texttt{benchmark/README.md}; the manuscript build command is
-recorded in \texttt{assets/paper/latex/README.md}. The release attachment
-\texttt{trimwise-paper-v1.pdf} is the rendered version of this manuscript.
+tag in the Trimwise repository}. It contains the original Trimwise
+implementation; frozen source and 160-case position-controlled datasets;
+source, method, and runtime manifests; raw compression and downstream-QA JSONL
+rows; aggregate summaries and paired statistics; HTML reports and figures; and
+the manuscript source. The parallel v1.2 strict rescore is frozen at
+\href{https://github.com/tenwritehq/trimwise/tree/588d195539f8b4bd2e6b1d5b1711f7b9429e53e8}{commit
+\texttt{588d195}}: its
+\href{https://github.com/tenwritehq/trimwise/blob/588d195539f8b4bd2e6b1d5b1711f7b9429e53e8/benchmark/data/manifests/evidence_sensitivity_v1_2_manifest.json}{manifest},
+\href{https://github.com/tenwritehq/trimwise/blob/588d195539f8b4bd2e6b1d5b1711f7b9429e53e8/benchmark/data/manifests/evidence_sensitivity_v1_2_protocol.md}{protocol},
+and
+\href{https://github.com/tenwritehq/trimwise/blob/588d195539f8b4bd2e6b1d5b1711f7b9429e53e8/benchmark/results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv}{complete
+summary} identify the inputs, scorer, and all reported metrics. The reproduction
+commands are recorded in \texttt{benchmark/README.md}; the manuscript build
+command is recorded in \texttt{assets/paper/latex/README.md}. The current
+manuscript and strict-rescore materials are released in the annotated
+\href{https://github.com/tenwritehq/trimwise/tree/paper-v1.2}{\texttt{paper-v1.2}
+tag}; the release attachment \texttt{trimwise-paper-v1.2.pdf} is this rendered
+manuscript.
 
 \section{Acknowledgments}\label{acknowledgments}
 
@@ -2198,14 +2209,14 @@ correction.
 
 \section{Full Results}\label{full-results}
 
-\subsection{Paired case-pass
+\subsection{Historical v1.1 paired case-pass
 differences}\label{paired-case-pass-differences}
 
 Table 3 is generated by \texttt{scripts/paired\_stats.py} from saved
-query-aware compression outputs. Each row uses all 160 paired cases; the
-difference is Trimwise Hybrid minus the named comparator in percentage
-points. It reports percentile-bootstrap intervals only and no
-significance test.
+query-aware compression outputs under the historical bag-of-token scorer.
+Each row uses all 160 paired cases; the difference is Trimwise Hybrid minus
+the named adapter in percentage points. It reports percentile-bootstrap
+intervals only and no significance test.
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
@@ -2230,18 +2241,18 @@ Hybrid-only / comparator-only passes
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-128 & LLMLingua & +46.9 & {[}38.1, 55.6{]} & 79 / 4 \\
-128 & LongLLM\allowbreak Lingua & +50.0 & {[}41.9, 58.1{]} & 81 / 1 \\
-128 & RECOMP-style & +17.5 & {[}8.8, 26.3{]} & 43 / 15 \\
-256 & LLMLingua & +55.6 & {[}46.3, 64.4{]} & 98 / 9 \\
-256 & LongLLM\allowbreak Lingua & +58.8 & {[}50.0, 67.5{]} & 100 / 6 \\
-256 & RECOMP-style & +25.6 & {[}16.3, 35.0{]} & 55 / 14 \\
-512 & LLMLingua & +51.2 & {[}41.9, 60.6{]} & 91 / 9 \\
-512 & LongLLM\allowbreak Lingua & +58.8 & {[}50.0, 66.9{]} & 99 / 5 \\
-512 & RECOMP-style & +18.8 & {[}8.8, 28.1{]} & 49 / 19 \\
-1,024 & LLMLingua & +30.0 & {[}20.0, 40.0{]} & 64 / 16 \\
-1,024 & LongLLM\allowbreak Lingua & +46.2 & {[}36.3, 56.3{]} & 86 / 12 \\
-1,024 & RECOMP-style & +13.8 & {[}5.6, 21.9{]} & 35 / 13 \\
+128 & LLMLingua GPT-2 token-pruning adapter & +46.9 & {[}38.1, 55.6{]} & 79 / 4 \\
+128 & LongLLM\allowbreak Lingua GPT-2 single-context adapter & +50.0 & {[}41.9, 58.1{]} & 81 / 1 \\
+128 & RECOMP NQ extractive sentence adapter & +17.5 & {[}8.8, 26.3{]} & 43 / 15 \\
+256 & LLMLingua GPT-2 token-pruning adapter & +55.6 & {[}46.3, 64.4{]} & 98 / 9 \\
+256 & LongLLM\allowbreak Lingua GPT-2 single-context adapter & +58.8 & {[}50.0, 67.5{]} & 100 / 6 \\
+256 & RECOMP NQ extractive sentence adapter & +25.6 & {[}16.3, 35.0{]} & 55 / 14 \\
+512 & LLMLingua GPT-2 token-pruning adapter & +51.2 & {[}41.9, 60.6{]} & 91 / 9 \\
+512 & LongLLM\allowbreak Lingua GPT-2 single-context adapter & +58.8 & {[}50.0, 66.9{]} & 99 / 5 \\
+512 & RECOMP NQ extractive sentence adapter & +18.8 & {[}8.8, 28.1{]} & 49 / 19 \\
+1,024 & LLMLingua GPT-2 token-pruning adapter & +30.0 & {[}20.0, 40.0{]} & 64 / 16 \\
+1,024 & LongLLM\allowbreak Lingua GPT-2 single-context adapter & +46.2 & {[}36.3, 56.3{]} & 86 / 12 \\
+1,024 & RECOMP NQ extractive sentence adapter & +13.8 & {[}5.6, 21.9{]} & 35 / 13 \\
 \end{longtable}
 }
 
@@ -2263,9 +2274,9 @@ LLMLingua-2 & 0.0\% & 0.0\% & 0.6\% & 4.4\% & 57.3\% \\
 \end{longtable}
 }
 
-All values are case-pass rates over the same 160 cases. This table is
-not comparable to Table 1: the query-aware methods receive the case
-query during selection, whereas these methods do not.
+All values are historical v1.1 case-pass rates over the same 160 cases.
+This table is not comparable to Table 1: the query-aware methods receive
+the case query during selection, whereas these methods do not.
 
 \section{Qualitative Failure Trace}\label{qualitative-failure-trace}
 

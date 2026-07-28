@@ -1,56 +1,65 @@
 ---
-title: "LLM Context Compression Benchmark | Trimwise Query-Aware Results"
-description: "See Trimwise query-aware LLM context compression benchmark results: source-evidence case pass, token budgets, latency, and a reproducible 160-case evaluation."
+title: "Query-Aware Context Compression Benchmark | Trimwise"
+description: "Explore Trimwise query-aware context compression results: strict source-span survival, output-token budgets, latency, and a reproducible 160-case evaluation."
 ---
 
-# Query-Aware LLM Context Compression Benchmark
+# Query-Aware Context Compression Benchmark
 
-Trimwise is designed for **query-aware prompt assembly**: given a source and a
-question, retain the exact source evidence most useful for that question under a strict output
-budget. This evaluation tests that claim directly. Every method receives the same source and
-question and must fit within a requested limit of 128, 256, 512, or 1,024 tokens.
+Trimwise is for prompt assembly when an application already has a source and a question: keep the
+exact source passages most useful for that question inside a fixed output budget. This evaluation
+tests that scoped task. Each method receives the same source, question, and 128-, 256-, 512-, or
+1,024-token ceiling.
 
-The published v1.1 snapshot uses **legacy source-evidence case pass**. A case passes only when the
-required source evidence survives, prohibited text is absent, and the finished output fits the
-shared token counter. Its required-span check can accept 80% bag-of-token recall anywhere in the
-output, so it measures a permissive source-evidence proxy—not general model intelligence or
-generated-answer quality.
+## Strict source-span results
 
-## Results at a glance
+The v1.2 primary result is **normalized contiguous required-span containment**. A case passes only
+when every annotated source span appears as one contiguous passage after case-folding and
+whitespace collapse, prohibited text is absent, and the output fits the shared token counter. It
+measures complete survival of the annotated source evidence—not semantic sufficiency, answer
+quality, or general prompt-compression capability.
 
-The v1.1 suite contains 160 cases: 40 each with required evidence at the beginning, middle, end,
-or several locations in the source. Under its legacy metric, Trimwise Hybrid retained required
-evidence more often than the evaluated query-aware comparators—LLMLingua, LongLLMLingua, and the
-released-model extractive RECOMP adapter—at every tested budget.
-
-| Method | 128 tokens | 256 tokens | 512 tokens | 1,024 tokens | Median warm trim time |
+| Evaluated method or adapter | 128 tokens | 256 tokens | 512 tokens | 1,024 tokens | Median warm trim time |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Trimwise Lexical | 53.8% | 61.3% | 62.5% | 66.3% | 6.4 ms |
-| **Trimwise Hybrid** | 50.6% | **63.8%** | **66.9%** | **69.4%** | 42.8 ms |
-| RECOMP extractive adapter | 33.1% | 38.1% | 48.1% | 55.6% | 126.2 ms |
-| LLMLingua | 3.8% | 8.1% | 15.6% | 39.4% | 168.0 ms |
-| LongLLMLingua | 0.6% | 5.0% | 8.1% | 23.1% | 340.7 ms |
+| **Trimwise Lexical** | **52.5%** | 60.0% | 61.9% | 66.2% | 6.4 ms |
+| **Trimwise Hybrid** | 49.4% | **62.5%** | **66.9%** | **69.4%** | 42.8 ms |
+| RECOMP NQ extractive sentence adapter | 27.5% | 30.6% | 35.0% | 35.0% | 126.2 ms |
+| LLMLingua GPT-2 token-pruning adapter | 3.1% | 7.5% | 13.8% | 22.5% | 168.0 ms |
+| LongLLMLingua GPT-2 single-context adapter | 0.6% | 4.4% | 6.9% | 16.2% | 340.7 ms |
 
-These are observed all-case rates from one saved evaluation snapshot. Warm timing excludes model
-loading and thermal cooldown and is specific to the recorded hardware.
+![Normalized contiguous required-span containment by query-aware output-token budget on 160 position-controlled cases.](assets/benchmark/normalized_contiguous_vs_budget.png)
 
-![Legacy query-aware source-evidence case pass by output budget on the position-controlled 160-case benchmark.](https://raw.githubusercontent.com/tenwritehq/trimwise/paper-v1.1/assets/readme/query-aware-benchmark.svg)
+[Open the detailed strict benchmark report](benchmark-report/index.html).
+
+Trimwise Lexical is the highest observed method at 128 tokens. Trimwise Hybrid is highest from 256
+through 1,024 tokens. The two local ordered-retention sensitivity checks—80% and 90% ordered
+recall inside one reference-length output window—preserve that ordering at every tested budget.
+
+### What this result means
+
+The strict metric was specified after a review found that the original scorer could credit
+bag-of-token matches scattered across an output. The v1.2 protocol was frozen before the new
+aggregates were inspected and re-scores the same saved compressor outputs; it does not rerun a GPU
+model or an API evaluator. It is a post-hoc robustness analysis, not a new independent experiment.
+
+The full sensitivity CSV includes normalized contiguous containment, local ordered 80% and 90%
+case pass, continuous local ordered recall, exact byte containment, and the earlier bag-of-token
+metric. The older metric remains available for historical reproducibility only; it is not the
+headline result on this page.
 
 ### Budget compliance and speed
 
-Trimwise Lexical and Hybrid and the RECOMP extractive adapter recorded no measured budget
-violations under the shared counter. LLMLingua exceeded the requested limit in 30.6% of
-query-aware calls; LongLLMLingua did so in 55.8% of calls. The chart below makes the practical
-trade-off visible: higher is better for source-evidence case pass, and farther left is faster.
+Trimwise Lexical and Hybrid and the RECOMP NQ extractive sentence adapter recorded no measured
+budget violations under the shared counter. The LLMLingua GPT-2 token-pruning adapter exceeded its
+requested ceiling in 30.6% of query-aware calls; the LongLLMLingua GPT-2 single-context adapter did
+so in 55.8%. Warm timing excludes cold model loading and thermal cooldown, and is specific to the
+recorded GPU and software environment.
 
-![Query-aware source-evidence case pass versus median trimming time for each token budget.](https://raw.githubusercontent.com/tenwritehq/trimwise/paper-v1.1/benchmark/reports/query-aware/utility_vs_latency.png)
+## Downstream answer diagnostic
 
-## Downstream QA across three models
-
-The benchmark also tests whether compressed evidence remains useful to downstream question-answering
-models. This diagnostic covers 93 answerable cases and uses GPT-5.4 Nano, GPT-5.4 Mini, and
-GPT-5.6 Luna. The dashed line in each panel is that evaluator's answer-match rate with the full,
-uncompressed source; each solid line uses a compressed context.
+The saved benchmark also asks whether a compressed context can support a short answer. This is a
+separate, weaker diagnostic over 93 answerable cases with one continuation per context from
+GPT-5.4 Nano, GPT-5.4 Mini, and GPT-5.6 Luna. It uses normalized answer matching; it is neither a
+human correctness study nor proof that a model relied only on the context.
 
 ![Downstream answer-match rate for GPT-5.4 Mini, GPT-5.4 Nano, and GPT-5.6 Luna at each context budget.](https://raw.githubusercontent.com/tenwritehq/trimwise/paper-v1.1/benchmark/reports/query-aware/answer_pass.png)
 
@@ -60,45 +69,30 @@ uncompressed source; each solid line uses a compressed context.
 | GPT-5.4 Mini | 45.2% | 46.2% |
 | GPT-5.6 Luna | 45.2% | 45.2% |
 
-In this saved snapshot, Trimwise Hybrid remains at or near the full-source reference from 256
-tokens upward for all three evaluators. The chart also shows the other compression methods. This
-is a normalized token-containment answer-match diagnostic from one sampled continuation per
-context—not a general measure of model capability or a human correctness study.
+## Scope and limits
 
-## What this benchmark establishes
+This is an author-annotated, position-controlled 160-case suite: 40 cases each with evidence at
+the beginning, middle, end, or multiple locations. It combines 135 natural placements with 25
+source-preserving end relocations. A natural-only sensitivity analysis excludes the relocations;
+its end stratum has only 15 cases, so it is not position-balanced.
 
-Within the v1.1 legacy source-evidence evaluation, query-aware Trimwise configurations retained
-the annotated evidence more often than the evaluated comparators at all four budgets. Hybrid was
-the strongest observed configuration from 256 through 1,024 tokens; Lexical was strongest at 128
-tokens and is substantially faster because it does not need embeddings.
+The comparison is against the exact adapters named above, not every configuration in the
+LLMLingua, LongLLMLingua, or RECOMP families. The RECOMP NQ extractive sentence adapter is built
+around the released checkpoint, not a reproduction of RECOMP's full retrieval and training pipeline.
+These results do not establish performance for every language, document type, private corpus,
+production agent workflow, or downstream model.
 
-This does **not** prove that Trimwise is universally best for every document, retrieval system,
-language, target model, or summarization task. The RECOMP result is an extractive benchmark adapter
-around the released checkpoint, not a reproduction of RECOMP's full retrieval and training
-pipeline. Generated-answer results are reported separately as a diagnostic, because one sampled
-answer and automatic token matching are weaker evidence than verified source retention.
+## Reproduce or inspect
 
-## Dataset and reproducibility
+The frozen rows, dataset, method configuration, runtime information, source hashes, and scripts are
+public. The v1.2 manifest records the exact input identities and the scorer/protocol commit; the
+summary is sufficient to inspect every reported metric without making GPU or API calls.
 
-The original 250-case corpus remains unchanged. The separate 160-case suite has 135 naturally
-positioned examples and 25 source-preserving controlled relocations used to balance end-position
-evidence. The natural-only sensitivity analysis excludes all relocations; it preserves the broad
-ordering, but has only 15 naturally occurring end cases and is therefore not position-balanced.
-
-The released artifact includes the dataset, source and runtime manifests, raw compression rows,
-saved evaluator responses, aggregate CSVs, paired comparisons, and the complete query-aware and
-source-only reports. The source-only condition is reported separately: it is a readable fallback
-when no useful question exists, not Trimwise's primary benchmark claim.
-
-A stricter v1.2 source-span analysis is intentionally separate and post-hoc: normalized contiguous
-required-span containment is its primary metric, with local ordered 80% and 90% sensitivity
-checks. It uses the same frozen outputs and does not establish semantic sufficiency or downstream
-answer correctness. Its protocol and manifest will be published alongside its parallel summary,
-not folded into the v1.1 figures.
-
-- [Read the full benchmark protocol and reproduction steps](https://github.com/tenwritehq/trimwise/blob/paper-v1.1/benchmark/README.md)
-- [Inspect the query-aware report and detailed figures](https://github.com/tenwritehq/trimwise/tree/paper-v1.1/benchmark/reports/query-aware)
-- [Inspect the separate source-only report](https://github.com/tenwritehq/trimwise/tree/paper-v1.1/benchmark/reports/queryless)
-- [Read the versioned paper and download the PDF](https://github.com/tenwritehq/trimwise/releases/tag/paper-v1.1)
+- [Benchmark protocol and reproduction commands](https://github.com/tenwritehq/trimwise/blob/main/benchmark/README.md)
+- [v1.2 metric protocol](https://github.com/tenwritehq/trimwise/blob/main/benchmark/data/manifests/evidence_sensitivity_v1_2_protocol.md)
+- [v1.2 frozen input manifest](https://github.com/tenwritehq/trimwise/blob/main/benchmark/data/manifests/evidence_sensitivity_v1_2_manifest.json)
+- [v1.2 complete sensitivity summary](https://github.com/tenwritehq/trimwise/blob/main/benchmark/results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv)
+- [Historical v1.1 report and source-only diagnostic](https://github.com/tenwritehq/trimwise/tree/paper-v1.1/benchmark/reports)
+- [Versioned paper and PDF](https://github.com/tenwritehq/trimwise/releases/tag/paper-v1.2)
 
 For the selection methods behind these results, see [Research Foundations](research-foundations.md).
