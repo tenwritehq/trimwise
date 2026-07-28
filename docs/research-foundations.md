@@ -276,8 +276,9 @@ Compared with this family, Trimwise uses coarser units and cannot usually reach 
 extreme compression ratios. Its benefit is that selected passages remain complete, readable source
 fragments; structural and lexical use require no compression model; and the final composed result
 is measured against the caller's exact budget. A position-controlled in-repository benchmark now
-compares query-aware Trimwise configurations with LLMLingua and LongLLMLingua under a shared external
-counter; its scoped evidence-retention results and failure modes are documented in the
+compares query-aware Trimwise configurations with the LLMLingua GPT-2 token-pruning adapter, the
+LongLLMLingua GPT-2 single-context adapter, and the RECOMP NQ extractive sentence adapter under a
+shared external counter; its scoped evidence-retention results and failure modes are documented in the
 [query-aware benchmark](benchmark.md). The results remain scoped to that benchmark and do not
 establish general downstream answer quality.
 

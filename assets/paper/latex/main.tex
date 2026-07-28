@@ -136,14 +136,12 @@ text. We evaluate query-aware selection on a 160-case,
 position-controlled suite with required evidence at the beginning,
 middle, end, or multiple locations. A post-hoc robustness analysis over
 the frozen outputs uses normalized contiguous required-span containment:
-at 128/256/512/1,024-token ceilings, the best Trimwise configuration
-obtains 52.5/62.5/66.9/69.4\%, compared with
-27.5/30.6/35.0/35.0\% for the RECOMP NQ extractive sentence adapter.
-The same ordering holds under local ordered-retention sensitivity
-checks. The evaluation also
-identifies difficult settings: multiple-evidence and
-instruction-survival cases, and source-only selection where simple
-positional baselines are stronger. Trimwise is intended as a
+at 128/256/512/1,024-token ceilings, Lexical obtains
+52.5/60.0/61.9/66.2\% and Hybrid obtains 49.4/62.5/66.9/69.4\%, compared
+with 27.5/30.6/35.0/35.0\% for the RECOMP NQ extractive sentence adapter.
+The same ordering holds under local ordered-retention sensitivity checks.
+The evaluation identifies difficult multiple-evidence and
+instruction-survival settings. Trimwise is intended as a
 source-faithful, query-aware prompt-assembly primitive; the downstream
 answer experiment is reported separately from the source-evidence
 evaluation.
@@ -425,8 +423,9 @@ notion of importance is positional. A prefix is appropriate when the
 source format reliably puts the task-relevant answer first; a head--tail
 policy covers introductions and conclusions. Neither can react to a
 question whose answer lies in an otherwise unremarkable middle section.
-The source-only results in Section 6 demonstrate both sides of that
-trade-off rather than treating these policies as straw-man baselines.
+The historical source-only diagnostic in Appendix D demonstrates both
+sides of that trade-off rather than treating these policies as straw-man
+baselines.
 
 Structural sampling and extractive summarization offer a stronger
 queryless alternative. Centroid methods rank sentences by their relation
@@ -467,6 +466,8 @@ Compression}\label{context-and-prompt-compression}
 
 Prompt-compression methods optimize a related but broader objective:
 reduce input length while preserving useful downstream behavior.
+Recent work surveys this space across model-centric and prompt-centric
+approaches \citep{li-etal-2025-prompt-compression-survey}.
 Selective Context removes low-self-information portions of a context
 \citep{li-etal-2023-selective-context}. LLMLingua uses a budget
 controller and iterative token-level compression
@@ -477,6 +478,19 @@ compression as token classification trained through data distillation
 \citep{pan-etal-2024-llmlingua-2}. RECOMP studies compression between
 retrieval and language-model augmentation, including an extractive
 compressor \citep{xu-etal-2024-recomp}.
+
+More recent query-aware work also makes the selection granularity and
+training objective explicit. CPC trains a context-aware sentence encoder
+for query-conditioned sentence selection \citep{liskavets-etal-2025-cpc},
+while Provence treats retrieved-context pruning as sequence labeling and
+can share a model with reranking \citep{chirkova-etal-2025-provence}.
+Perception Compressor combines a question-guided retriever with
+token-level compression \citep{tang-etal-2025-perception-compressor}.
+Adaptive QuerySelect studies query-aware variable-rate prompt selection
+through a rate-distortion framing \citep{nagle-etal-2024-fundamental-limits}.
+These methods were not executed in the frozen benchmark and are not
+implicit baselines for Trimwise; they motivate a broader future comparison
+against direct learned and retrieval-style selectors.
 
 These systems are meaningful comparators, but their output units and
 contracts differ. Token pruning can produce an efficient prompt without
@@ -1273,7 +1287,10 @@ over the position-balanced set. We also re-aggregate the saved rows after
 excluding all 25 relocations. This 135-case natural-only sensitivity
 analysis contains 40 beginning, 40 middle, 15 end, and 40 multiple-evidence
 cases; it is intentionally not position-balanced. No compressor or evaluator
-is run again for this analysis.
+is run again for this analysis. A second saved-output sensitivity excludes all
+10 	exttt{real-trimwise-*} cases drawn from four Trimwise documents. It tests
+whether the observed comparison is dependent on the author's own source domain;
+the 150 remaining cases are not rebalanced.
 
 Contexts range from 1,423 to 100,897 Python characters, with a median of
 9,362 characters. There are 120 cases with one required span, 6 with
@@ -1283,9 +1300,10 @@ equally because the set is balanced, while the separately reported macro
 rate weights task tracks equally. Track-level results remain necessary
 to expose task-specific failure modes. The corpus has no
 development/test split because it is a single fixed comparative
-evaluation suite. Configuration and metrics were fixed before the final
-compression run; no method parameters were tuned on a held-out subset of
-these 160 cases.
+evaluation suite. Compressor configurations and the original v1.1
+evaluation were fixed before the final compression run; the v1.2 metric
+protocol was separately frozen before rescoring the saved outputs. No
+method parameters were tuned on a held-out subset of these 160 cases.
 
 Public-source examples and the source code of Trimwise itself may have
 appeared in the training data of the downstream language models. The
@@ -1478,25 +1496,25 @@ and any application-specific prompt assembly.
 \subsection{Statistical Analysis}\label{statistical-analysis}
 
 The unit of comparison is a case at a fixed method, access condition,
-and budget. The released paired comparison is a historical v1.1
-diagnostic. It contrasts Trimwise Hybrid with the LLMLingua GPT-2
-token-pruning adapter, the LongLLMLingua GPT-2 single-context adapter,
-and the RECOMP NQ extractive sentence adapter on query-aware
-bag-of-token case pass across all 160 position-controlled cases. For
-each budget, it computes the paired difference in pass rates and a
-two-sided 95\% percentile-bootstrap interval from 10,000 resamples of
-the 160 case pairs, using NumPy's \texttt{default\_rng(20260728)}. It is
-not an interval for the post-hoc v1.2 primary metric.
+and budget. The v1.2 analysis calculates paired differences for each
+Trimwise configuration against each evaluated query-aware adapter on all
+160 cases. It reports normalized contiguous case pass, local ordered 80\%
+case pass, and local ordered 90\% case pass. For every metric, budget, and
+pair, the released script computes a 95\% percentile-bootstrap interval
+from 10,000 resamples of paired case differences using NumPy's
+\texttt{default\_rng(20260728)}. The main text gives the primary-metric
+Hybrid--RECOMP intervals; the complete 72-row table is released with the
+v1.2 artifact.
 
 These intervals quantify variation from resampling this fixed evaluation
 suite. They do not estimate variance across independent documents,
 compressor seeds, hardware, model versions, or repeated API generations.
-The dataset and compression configuration were frozen before the run,
-but the paired bootstrap analysis was added after result collection; it
-is therefore a transparent descriptive analysis, not a preregistered
-confirmatory test. We report no p-values, significance stars, or
-multiple-comparison-adjusted claims. The 12 historical intervals are
-effect-size context, not a license to claim general superiority.
+The v1.2 metrics and bootstrap analysis were specified after review of the
+historical scorer but frozen before inspecting their aggregates. They are
+therefore transparent post-hoc robustness analyses, not preregistered
+confirmatory tests. We report no p-values, significance stars, or
+multiple-comparison-adjusted claims. Historical v1.1 intervals remain in
+the appendix solely to reproduce the earlier artifact.
 
 All 6,400 compression rows completed successfully, so no row required a
 missing-data rule. In a future rerun, an unsuccessful compressor call
@@ -1543,10 +1561,10 @@ tagged artifact before being treated as portable performance estimates.
 
 \section{Results}\label{results}
 
-All results in this section come from the frozen 160-case set and saved
-outputs described in Section 5. Query-aware and source-only conditions
-are reported separately. The reported ordering concerns this suite,
-configuration, and runtime.
+All primary results in this section come from the frozen 160-case set and
+saved outputs described in Section 5. They use the strict v1.2 scorer.
+The historical source-only condition is retained separately in Appendix D.
+The reported ordering concerns this suite, configuration, and runtime.
 
 \subsection{Query-Aware Source-Evidence
 Results}\label{query-aware-source-evidence-results}
@@ -1588,15 +1606,17 @@ for Hybrid, 126.2 ms for the RECOMP adapter, 168.0 ms for the LLMLingua
 adapter, and 340.7 ms for the LongLLMLingua adapter. Warm timing excludes
 model loading and thermal waiting; it remains machine-specific.
 
-The following track breakdown is retained from the historical v1.1
-bag-of-token diagnostic, not the v1.2 primary metric. At 256 tokens,
-Hybrid passes 84.8\% of the evidence-QA track, 73.3\% of the real-source
-track, 70.0\% of the procedure track, and 100\% of the structured track,
-compared with 35.3\% of the adversarial track and 0\% of the instruction
-track. Both query-aware Trimwise strategies retain a zero instruction
-case-pass rate at every tested budget. On these instruction-survival
-tasks, the current selector and case-pass criterion do not align with
-the required output format.
+The strict v1.2 track results identify important boundaries of this
+aggregate. At 256 tokens, Hybrid passes 80.4\% of evidence-QA cases,
+73.3\% of real-source cases, 70.0\% of procedure cases, and 100\% of
+structured cases. It passes 35.3\% of adversarial cases and 0\% of
+instruction-survival cases; Lexical has the same zero instruction result.
+The strict score therefore does not support a claim that the current
+selector reliably preserves required output-format rules. At the same
+budget, the RECOMP adapter has 35.3\% adversarial, 4.3\% evidence-QA,
+70.0\% procedure, 36.7\% real-source, and 61.9\% structured case pass.
+Those differences are task-dependent, not evidence of a single universal
+selection mechanism.
 
 \subsection{Behaviour Across Budgets}\label{behaviour-across-budgets}
 
@@ -1611,12 +1631,12 @@ the figure.}
 
 \begin{figure}
 \centering
-\pandocbounded{\includegraphics[keepaspectratio,alt={All-case query-aware pass rate by budget after excluding controlled relocations.}]{../../../benchmark/reports/query-aware/natural_only_vs_budget.png}}
-\caption{Historical v1.1 natural-only sensitivity analysis. These all-case
-rates use the 135 naturally positioned rows and exclude all 25 controlled
-relocations. The natural subset has only 15 end-position cases, so it is not a
-position-balanced replacement for the primary 160-case controlled diagnostic.}
-\label{fig:natural-only-sensitivity}
+\pandocbounded{\includegraphics[keepaspectratio,alt={Strict source-span case pass shown separately for natural placement and controlled relocation cohorts.}]{../../../benchmark/reports/evidence-sensitivity-v1-2/natural_vs_relocated.png}}
+\caption{Strict v1.2 cohort sensitivity. The top panel uses the 135 natural
+placements and is unbalanced by position because it contains 15 natural end
+cases. The bottom panel uses 25 controlled end relocations. It is a construction
+diagnostic, not a causal estimate of naturally occurring end-evidence behavior.}
+\label{fig:strict-cohort-sensitivity}
 \end{figure}
 
 Increasing the ceiling helps every evaluated adapter, but not to the same
@@ -1627,18 +1647,33 @@ token-pruning adapter rises from 3.1\% to 22.5\%, and the
 LongLLMLingua GPT-2 single-context adapter rises from 0.6\% to 16.2\%.
 Neither overtakes either Trimwise configuration on this suite.
 
-Appendix B preserves the paired bootstrap analysis from the historical
-v1.1 bag-of-token metric. It is not used to quantify uncertainty for the
-stricter v1.2 result; that distinction prevents a legacy interval from
-being presented as confirmatory evidence for a later post-hoc metric.
+The strict natural-only sensitivity preserves the same observed ordering
+without claiming position balance. At 256 tokens, Hybrid passes 63.0\% of
+the 135 natural cases and Lexical passes 62.2\%, compared with 26.7\% for
+the RECOMP NQ extractive sentence adapter. At 1,024 tokens, the corresponding
+rates are 70.4\%, 68.9\%, and 30.4\%. Excluding the ten cases drawn from
+Trimwise's own documents leaves 150 rows: Hybrid passes 63.3\% at 256 tokens
+and 67.3\% at 1,024 tokens, compared with 32.0\% and 36.7\% for RECOMP.
+These checks use the same frozen compression strings; they do not create an
+independent evaluation set.
 
-The historical v1.1 natural-only sensitivity analysis has the same broad
-ordering without claiming position balance. At 256 tokens, Hybrid passes
-64.4\% of the 135 natural cases and Lexical passes 63.7\%, compared with
-33.3\% for the RECOMP NQ extractive sentence adapter. At 1,024 tokens,
-their rates are 70.4\%, 68.9\%, and 51.1\%, respectively. The analysis
-reuses saved outputs and is descriptive; the smaller natural-end subset does
-not support a separate position-balanced inference.
+The controlled-relocation cohort behaves differently and must remain
+separate. At 256 tokens, Hybrid passes 60.0\% of the 25 relocated rows and
+RECOMP passes 52.0\%, versus 63.0\% and 26.7\% on natural rows. At 1,024
+tokens, the corresponding relocated rates are 64.0\% and 60.0\%, while
+their natural rates are 70.4\% and 30.4\%. Relocation therefore changes more
+than a global position label for some methods, plausibly through local context
+and the composition of the remaining source. The combined 40-case end stratum
+is useful for the balanced diagnostic, but not an estimate of naturally
+occurring end-evidence performance.
+
+The paired v1.2 bootstrap intervals show a positive Hybrid--RECOMP difference
+under the primary metric at every budget: +21.9 percentage points (95\%
+interval [+13.1, +31.2]) at 128 tokens, +31.9 [+22.5, +41.2] at 256,
++31.9 [+21.9, +41.9] at 512, and +34.4 [+25.0, +43.8] at 1,024. The full
+paired table includes both Trimwise configurations and the two local ordered
+sensitivities. These intervals describe resampling variation within this fixed,
+author-annotated suite; they do not establish population-level superiority.
 
 The additional budget is not always filled. Hybrid's median output is
 126, 253, 253, and 263 tokens at the four ceilings; Lexical's is 126,
@@ -1649,34 +1684,14 @@ evidence. Whether leaving capacity unused is desirable depends on a
 downstream task; its source-level benefit here should not be read as
 proof that a shorter excerpt always produces a better answer.
 
-Historical v1.1 position-level results also remain uneven. For Hybrid at
-256 tokens, case pass is 77.5\% for beginning evidence, 67.5\% for middle
-evidence, 65.0\% for end evidence, and 45.0\% for multiple-span evidence.
-Multiple evidence remains the hardest condition at every budget, reaching
-only 45.0\% at 1,024 tokens. Balancing positions prevents the beginning
-stratum from concealing this failure mode; it does not make the task equally
-difficult across strata.
-
-\begin{figure}
-\centering
-\pandocbounded{\includegraphics[keepaspectratio,alt={Historical query-aware case-pass rates split into natural end, controlled relocated end, and their combined controlled end stratum.}]{../../../benchmark/reports/query-aware/end_origin_breakdown.png}}
-\caption{Historical v1.1 end-position construction check. Natural end cases (\(n=15\)),
-controlled end relocations (\(n=25\)), and their combined controlled end
-stratum (\(n=40\)) are shown separately for each query-aware method and
-budget. The combined column is a weighted view of the first two columns, not
-an independent sample.}
-\label{fig:end-origin-breakdown}
-\end{figure}
-
-The historical end split reinforces why the 160-case suite is a controlled
-diagnostic. At 256 tokens, natural end cases give Lexical, Hybrid, and the
-RECOMP NQ extractive sentence adapter pass rates of 80.0\%, 73.3\%, and
-13.3\%, whereas controlled relocations give 48.0\%, 60.0\%, and 64.0\%.
-Relocation therefore changes more than a global position label for some
-methods, plausibly through the span's local context and the composition of
-the remaining source. We report the combined 40-case end stratum for the
-balanced primary diagnostic, but do not interpret it as an estimate of
-naturally occurring end-evidence performance.
+Strict v1.2 position-level results are also uneven. At 256 tokens, Hybrid
+passes 77.5\% for beginning evidence, 65.0\% for middle evidence, 62.5\%
+for end evidence, and 45.0\% for multiple-span evidence. Lexical records
+72.5\%, 65.0\%, 57.5\%, and 45.0\% in the same order; RECOMP records
+35.0\%, 40.0\%, 32.5\%, and 15.0\%. Multiple evidence remains the hardest
+condition for both Trimwise configurations at all four budgets. Balancing
+positions prevents early evidence from concealing that failure mode; it does
+not make the strata equally difficult.
 
 \subsection{Downstream Answer
 Transfer}\label{downstream-answer-transfer}
@@ -1716,24 +1731,6 @@ excerpts remain near the complete-source reference at several budgets,
 while the evaluated comparator outputs are lower. Repeated,
 task-validated downstream evaluation is needed to assess generated-answer
 quality more directly.
-
-\subsection{Source-Only Diagnostic}\label{source-only-diagnostic}
-
-The historical v1.1 source-only condition is not pooled with Section 6.1. It makes the
-positional weakness of queryless selection visible. At 256 tokens,
-first-\emph{N} passes 90.0\% of beginning-evidence cases but only 2.5\%
-of end cases and 0\% of middle or multiple-evidence cases. Head--tail
-reaches 67.5\%, 0\%, 50.0\%, and 15.0\% on beginning, middle, end, and
-multiple positions respectively. Trimwise Structural reaches 10.0\%,
-0\%, 62.5\%, and 0\% in the same order. Its all-case 256-token rate is
-18.1\%, compared with 33.1\% for head--tail and 23.1\% for
-first-\emph{N}.
-
-Within the source-only condition, head--tail is the strongest aggregate
-baseline. Structural trimming retains some end evidence that prefix
-truncation misses and serves as a readable, bounded fallback when an
-application has no useful query. The main empirical evaluation in this
-paper concerns query-aware source selection.
 
 \subsection{Budget Compliance and
 Runtime}\label{budget-compliance-and-runtime}
@@ -1786,9 +1783,9 @@ reconstruction one at a time.
 \subsection{Observed Failure Modes}\label{observed-failure-modes}
 
 The results reveal four failure modes that matter more than the
-aggregate curve. First, multiple required spans are difficult: in the
-historical v1.1 diagnostic, Hybrid reaches only 45.0\% case pass in that
-stratum from 256 through 1,024 tokens. A single relevance-ranked fragment can be highly useful while
+aggregate curve. First, multiple required spans are difficult: under the
+strict v1.2 metric, Hybrid reaches only 45.0\% case pass in that stratum
+from 256 through 1,024 tokens. A single relevance-ranked fragment can be highly useful while
 another necessary fragment is remote, weakly lexical, or excluded by the
 evidence cutoff. Source-order reconstruction makes the selected pieces
 readable; it does not solve the set-coverage problem.
@@ -1822,17 +1819,9 @@ answers as a diagnostic. A future benchmark should include human review
 or a stronger task-specific checker for a subset of cases before making
 claims about reasoning quality.
 
-\subsection{When Simpler Policies Win}\label{when-simpler-policies-win}
+\subsection{Configuration Trade-offs}\label{configuration-trade-offs}
 
-The source-only results give a direct counterexample to a ``ranking is
-always better'' story. At 256 tokens, prefix truncation passes 90.0\% of
-beginning-evidence cases, whereas Trimwise Structural passes 10.0\%.
-When document order reliably puts the answer first, the prefix rule
-exactly preserves the salient region and incurs almost no computation.
-Head--tail is the strongest source-only method in the 160-case aggregate
-at every tested ceiling, because it explicitly covers both extremes.
-
-There is also a query-aware version of this trade-off. Lexical has a
+Lexical has a
 higher observed normalized contiguous containment rate than Hybrid at the
 128-token ceiling and is about seven times faster in median warm trimming
 time. If a query
@@ -1950,7 +1939,7 @@ token-pruning adapter, LongLLMLingua GPT-2 single-context adapter, and
 RECOMP NQ extractive sentence adapter at 128, 256, 512, and 1,024 tokens.
 The same ordering holds under local ordered 80\% and 90\% sensitivities.
 The evaluation also exposes instruction-survival and multiple-span
-failures, while head--tail is stronger in the source-only condition.
+failures.
 
 These findings support query-aware, source-faithful selection for prompt
 assembly from a known source under a hard budget. Priority next steps are
@@ -2012,20 +2001,20 @@ tag in the Trimwise repository}. It contains the original Trimwise
 implementation; frozen source and 160-case position-controlled datasets;
 source, method, and runtime manifests; raw compression and downstream-QA JSONL
 rows; aggregate summaries and paired statistics; HTML reports and figures; and
-the manuscript source. The parallel v1.2 strict rescore is frozen at
-\href{https://github.com/tenwritehq/trimwise/tree/588d195539f8b4bd2e6b1d5b1711f7b9429e53e8}{commit
-\texttt{588d195}}: its
-\href{https://github.com/tenwritehq/trimwise/blob/588d195539f8b4bd2e6b1d5b1711f7b9429e53e8/benchmark/data/manifests/evidence_sensitivity_v1_2_manifest.json}{manifest},
-\href{https://github.com/tenwritehq/trimwise/blob/588d195539f8b4bd2e6b1d5b1711f7b9429e53e8/benchmark/data/manifests/evidence_sensitivity_v1_2_protocol.md}{protocol},
-and
-\href{https://github.com/tenwritehq/trimwise/blob/588d195539f8b4bd2e6b1d5b1711f7b9429e53e8/benchmark/results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv}{complete
-summary} identify the inputs, scorer, and all reported metrics. The reproduction
-commands are recorded in \texttt{benchmark/README.md}; the manuscript build
-command is recorded in \texttt{assets/paper/latex/README.md}. The current
-manuscript and strict-rescore materials are released in the annotated
+the manuscript source. The parallel v1.2 scorer and its pre-aggregate protocol
+freeze are in the annotated
 \href{https://github.com/tenwritehq/trimwise/tree/paper-v1.2}{\texttt{paper-v1.2}
-tag}; the release attachment \texttt{trimwise-paper-v1.2.pdf} is this rendered
-manuscript.
+tag}; the original strict all-case summary, manifest, and protocol identify the
+frozen 6,400 compression rows. This revision adds saved-output subgroup,
+self-source-exclusion, and paired-bootstrap analyses under that unchanged v1.2
+metric. Its complete manuscript, source, raw rows, derived CSVs, reports, and
+PDF are released as the annotated
+\href{https://github.com/tenwritehq/trimwise/tree/paper-v1.3}{\texttt{paper-v1.3}
+tag}. The runtime manifest retains its historical \,\texttt{paper-v1} release
+label because it records the original compression run; it is not the v1.2
+scorer manifest. Reproduction commands are recorded in
+\texttt{benchmark/README.md}; the manuscript build command is recorded in
+\texttt{assets/paper/latex/README.md}.
 
 \section{Acknowledgments}\label{acknowledgments}
 
@@ -2207,7 +2196,7 @@ stated in Section 5.5. There is no retry policy for saved API failures,
 no temperature parameter, no hidden judge model, and no manual parsing
 correction.
 
-\section{Full Results}\label{full-results}
+\section{Historical v1.1 Diagnostics}\label{historical-v1-1-diagnostics}
 
 \subsection{Historical v1.1 paired case-pass
 differences}\label{paired-case-pass-differences}
@@ -2277,6 +2266,12 @@ LLMLingua-2 & 0.0\% & 0.0\% & 0.6\% & 4.4\% & 57.3\% \\
 All values are historical v1.1 case-pass rates over the same 160 cases.
 This table is not comparable to Table 1: the query-aware methods receive
 the case query during selection, whereas these methods do not.
+At 256 tokens, prefix truncation passes 90.0\% of beginning-evidence cases
+but only 2.5\% of end cases and 0\% of middle or multiple-evidence cases.
+Head--tail reaches 67.5\%, 0\%, 50.0\%, and 15.0\% across those four
+positions; Trimwise Structural reaches 10.0\%, 0\%, 62.5\%, and 0\%.
+These historical source-only values are retained as a diagnostic of
+positional behavior, not as support for the strict query-aware claim.
 
 \section{Qualitative Failure Trace}\label{qualitative-failure-trace}
 
@@ -2344,8 +2339,9 @@ documents.
   Primary citations in this manuscript were checked against primary or
   official sources.
 \item[$\boxtimes$]
-  The benchmark artifact and raw results are frozen in the public
-  \texttt{paper-v1} Git snapshot (Section~\ref{artifact-availability}).
+  The original raw outputs are frozen in the public \texttt{paper-v1} Git
+  snapshot; the v1.2 rescore and this report's derived results are released
+  with \texttt{paper-v1.3} (Section~\ref{artifact-availability}).
 \item[$\boxtimes$]
   \url{benchmark/data/manifests/runtime_manifest.json} preserves a local
   hardware, driver, package, model-artifact, configuration, and result-hash

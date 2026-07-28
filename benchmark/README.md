@@ -124,6 +124,12 @@ rerunning GPU models or making API calls. Other result JSONL files remain ignore
 run state. Open `reports/index.html`; it routes to separate query-aware and source-only reports.
 The v1.2 figure renderer also refreshes the detailed report served from the documentation site.
 
+The later v1.2 post-hoc sensitivity release additionally includes
+`results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv`, its natural-only,
+relocated-only, and self-source-excluded companion CSVs, and
+`results/position_controlled_160_evidence_sensitivity_v1_2_paired_stats.csv`. These are parallel
+rescoring artifacts, not replacements for the immutable historical v1.1 snapshot.
+
 [`data/manifests/runtime_manifest.json`](data/manifests/runtime_manifest.json) records the
 captured machine, package lock, model revisions, run settings, and SHA-256 hashes for this local
 dataset and result snapshot. It is an integrity record released with the
@@ -164,6 +170,37 @@ uv run python -m benchmark.runners.aggregate \
   --output results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv
 ```
 
+Generate the predeclared sensitivity cohorts and paired intervals from those same saved rows:
+
+```bash
+uv run python -m benchmark.runners.aggregate \
+  --input results/position_controlled_160_results.jsonl \
+  --dataset data/position_controlled_160.jsonl \
+  --position-origin natural \
+  --output results/position_controlled_160_evidence_sensitivity_v1_2_natural_only_summary.csv
+
+uv run python -m benchmark.runners.aggregate \
+  --input results/position_controlled_160_results.jsonl \
+  --dataset data/position_controlled_160.jsonl \
+  --position-origin controlled_relocation \
+  --output results/position_controlled_160_evidence_sensitivity_v1_2_relocated_only_summary.csv
+
+uv run python -m benchmark.runners.aggregate \
+  --input results/position_controlled_160_results.jsonl \
+  --dataset data/position_controlled_160.jsonl \
+  --exclude-case-prefix real-trimwise- \
+  --output results/position_controlled_160_evidence_sensitivity_v1_2_without_self_sources_summary.csv
+
+uv run python scripts/paired_stats.py --metric-set strict-v1.2
+uv run python scripts/render_evidence_sensitivity_figure.py
+```
+
+The first cohort uses 135 natural rows and is unbalanced by evidence position because only 15 have
+natural end placement. The second contains the 25 controlled end relocations and is reported as a
+construction diagnostic, not as a causal replacement for naturally occurring evidence position. The
+third excludes every `real-trimwise-*` row. All four v1.2 CSVs and the paired-bootstrap CSV are
+derived from the original 6,400 saved compression rows; no GPU or API call is made.
+
 ### v1.2 strict source-span results
 
 The strict primary metric is normalized contiguous required-span containment. Every required span
@@ -179,9 +216,11 @@ using the same saved outputs as the historical v1.1 summary.
 | LLMLingua GPT-2 token-pruning adapter | 3.1% | 7.5% | 13.8% | 22.5% |
 | LongLLMLingua GPT-2 single-context adapter | 0.6% | 4.4% | 6.9% | 16.2% |
 
-The local ordered 80% and 90% sensitivities preserve this ordering at each budget. Their complete
-results, continuous recall values, and the legacy metric are all retained in
-[`results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv`](results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv).
+The local ordered 80% and 90% sensitivities preserve this ordering at each budget. The static
+[v1.2 report](reports/evidence-sensitivity-v1-2/index.html) separates evidence survival from
+feasible pass, natural placement from controlled relocation, and the self-source exclusion check.
+Its complete results, continuous recall values, paired intervals, and the legacy metric are retained
+in the released v1.2 CSVs.
 
 Render the committed v1.2 figure from the frozen CSV with:
 

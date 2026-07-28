@@ -12,6 +12,10 @@ vendor/*.whl
 !results/position_controlled_160_relocated_end_summary.csv
 !results/position_controlled_160_paired_stats.csv
 !results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv
+!results/position_controlled_160_evidence_sensitivity_v1_2_natural_only_summary.csv
+!results/position_controlled_160_evidence_sensitivity_v1_2_relocated_only_summary.csv
+!results/position_controlled_160_evidence_sensitivity_v1_2_without_self_sources_summary.csv
+!results/position_controlled_160_evidence_sensitivity_v1_2_paired_stats.csv
 !results/position_controlled_160_results.jsonl
 !results/position_controlled_160_qa_gpt_5_4_nano.jsonl
 !results/position_controlled_160_qa_gpt_5_4_mini.jsonl
@@ -19,3 +23,7 @@ vendor/*.whl
 !reports/query-aware/end_origin_breakdown.png
 !reports/query-aware/natural_only_vs_budget.png
 !reports/queryless/end_origin_breakdown.png
+!reports/evidence-sensitivity-v1-2/normalized_contiguous_vs_budget.png
+!reports/evidence-sensitivity-v1-2/normalized_contiguous_vs_budget.svg
+!reports/evidence-sensitivity-v1-2/natural_vs_relocated.png
+!reports/evidence-sensitivity-v1-2/natural_vs_relocated.svg
