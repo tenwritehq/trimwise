@@ -13,6 +13,18 @@ import pandas as pd
 
 FULL_PROMPT_METHOD = "full_context"
 POSITION_ORDER = ("beginning", "middle", "end", "multiple")
+COMPRESSION_GROUP_COLUMNS = (
+    "method_id",
+    "query_aware",
+    "track",
+    "evidence_position",
+    "budget",
+)
+EVALUATOR_LABELS = {
+    "gpt_5_4_nano": "GPT-5.4 Nano",
+    "gpt_5_4_mini": "GPT-5.4 Mini",
+    "gpt_5_6_luna": "GPT-5.6 Luna",
+}
 
 METHOD_LABELS = {
     "naive_first_n": "Prefix baseline",
@@ -97,19 +109,32 @@ REPORTS = (
 )
 
 
-def plot_summary(input_path: Path, output_dir: Path) -> None:
+def plot_summary(
+    input_path: Path,
+    output_dir: Path,
+    natural_input_path: Path | None = None,
+    relocated_end_input_path: Path | None = None,
+) -> None:
     """Create one static report for each valid question-access condition.
 
     Args:
         input_path: Aggregated CSV emitted by the benchmark aggregate runner.
         output_dir: Root directory receiving an index and two report directories.
+        natural_input_path: Optional aggregate containing only naturally placed cases.
+        relocated_end_input_path: Optional aggregate containing only controlled relocations.
 
     Raises:
         ValueError: If no configured fair track has compression rows.
     """
     import matplotlib.pyplot as plt
 
+    if (natural_input_path is None) != (relocated_end_input_path is None):
+        raise ValueError("natural and relocated-end inputs must be supplied together")
     frame = pd.read_csv(input_path)
+    natural_frame = pd.read_csv(natural_input_path) if natural_input_path else None
+    relocated_end_frame = (
+        pd.read_csv(relocated_end_input_path) if relocated_end_input_path else None
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     available_reports = []
     for report in REPORTS:
@@ -118,9 +143,17 @@ def plot_summary(input_path: Path, output_dir: Path) -> None:
             continue
         report_dir = output_dir / report.directory
         report_dir.mkdir(parents=True, exist_ok=True)
-        figures = _render_figures(plt, frame, rows, report, report_dir)
-        _write_guide(report, report_dir)
-        _write_report(report, frame, rows, figures, report_dir)
+        figures = _render_figures(
+            plt,
+            frame,
+            rows,
+            report,
+            report_dir,
+            natural_frame,
+            relocated_end_frame,
+        )
+        _write_guide(report, report_dir, natural_frame is not None)
+        _write_report(report, frame, rows, figures, report_dir, natural_frame is not None)
         available_reports.append(report)
     if not available_reports:
         raise ValueError("summary does not contain configured query-aware or queryless rows")
@@ -137,8 +170,9 @@ def _compression_rows(frame: pd.DataFrame, report: ReportSpec) -> pd.DataFrame:
     Returns:
         Main comparison rows without QA evaluator duplication.
     """
-    rows = frame[
-        frame["query_aware"].eq(report.query_aware) & frame["method_id"].isin(report.methods)
+    rows = _compression_summary_rows(frame)
+    rows = rows[
+        rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)
     ].copy()
     if rows.empty:
         return rows
@@ -153,6 +187,19 @@ def _compression_rows(frame: pd.DataFrame, report: ReportSpec) -> pd.DataFrame:
         )
         .sort_values(["budget", "method_id"])
     )
+
+
+def _compression_summary_rows(frame: pd.DataFrame) -> pd.DataFrame:
+    """Remove QA-evaluator copies before aggregating compressor measurements.
+
+    Args:
+        frame: Combined aggregate table, including optional QA evaluator columns.
+
+    Returns:
+        One row for each recorded compressor, track, position, and budget group.
+    """
+    available_columns = [column for column in COMPRESSION_GROUP_COLUMNS if column in frame]
+    return frame.drop_duplicates(subset=available_columns).copy()
 
 
 def _weighted_rows(
@@ -196,10 +243,11 @@ def _position_rows(frame: pd.DataFrame, report: ReportSpec) -> pd.DataFrame:
     """
     if "evidence_position" not in frame:
         return pd.DataFrame()
-    rows = frame[
-        frame["query_aware"].eq(report.query_aware)
-        & frame["method_id"].isin(report.methods)
-        & frame["evidence_position"].isin(POSITION_ORDER)
+    rows = _compression_summary_rows(frame)
+    rows = rows[
+        rows["query_aware"].eq(report.query_aware)
+        & rows["method_id"].isin(report.methods)
+        & rows["evidence_position"].isin(POSITION_ORDER)
     ]
     return _weighted_rows(
         rows,
@@ -207,6 +255,82 @@ def _position_rows(frame: pd.DataFrame, report: ReportSpec) -> pd.DataFrame:
         ["case_pass_rate"],
         "rows",
     )
+
+
+def _overall_case_pass_rows(frame: pd.DataFrame, report: ReportSpec) -> pd.DataFrame:
+    """Return all-case pass rates for one report condition.
+
+    Args:
+        frame: Aggregate table for one complete or filtered case cohort.
+        report: Fairness-track definition.
+
+    Returns:
+        One case-pass rate per method and budget, weighted by contributing cases.
+    """
+    rows = _compression_summary_rows(frame)
+    rows = rows[
+        rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)
+    ]
+    return _weighted_rows(rows, ["method_id", "budget"], ["case_pass_rate"], "rows")
+
+
+def _cohort_size(frame: pd.DataFrame, report: ReportSpec, position: str | None = None) -> int:
+    """Return the stable case count represented by one comparison cohort.
+
+    Args:
+        frame: Aggregate table for one complete or filtered case cohort.
+        report: Fairness-track definition.
+        position: Optional evidence-position value to retain.
+
+    Returns:
+        Number of source cases in the selected cohort, or zero when absent.
+    """
+    rows = _compression_summary_rows(frame)
+    rows = rows[
+        rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)
+    ]
+    if position is not None:
+        rows = rows[rows["evidence_position"].eq(position)]
+    if rows.empty:
+        return 0
+    counts = rows.groupby(["method_id", "budget"], dropna=False)["rows"].sum()
+    return int(counts.iloc[0])
+
+
+def _end_origin_rows(
+    frame: pd.DataFrame,
+    natural_frame: pd.DataFrame,
+    relocated_end_frame: pd.DataFrame,
+    report: ReportSpec,
+) -> pd.DataFrame:
+    """Return natural, relocated, and combined end-position case-pass rates.
+
+    Args:
+        frame: Full 160-case aggregate table.
+        natural_frame: Aggregate table filtered to naturally placed cases.
+        relocated_end_frame: Aggregate table filtered to controlled relocations.
+        report: Fairness-track definition.
+
+    Returns:
+        One rate per method, budget, and labeled end-position cohort.
+    """
+    cohorts = (
+        ("Natural", natural_frame),
+        ("Relocated", relocated_end_frame),
+        ("Combined", frame),
+    )
+    parts = []
+    for label, cohort_frame in cohorts:
+        values = _position_rows(cohort_frame, report)
+        values = values[values["evidence_position"].eq("end")].copy()
+        if values.empty:
+            continue
+        size = _cohort_size(cohort_frame, report, "end")
+        values["end_cohort"] = f"{label}\nn={size}"
+        parts.append(values)
+    if not parts:
+        return pd.DataFrame()
+    return pd.concat(parts, ignore_index=True)
 
 
 def _qa_rows(frame: pd.DataFrame, report: ReportSpec) -> pd.DataFrame:
@@ -243,8 +367,9 @@ def _task_rows(frame: pd.DataFrame, report: ReportSpec) -> pd.DataFrame:
     Returns:
         One weighted case-pass rate per method, budget, and task family.
     """
-    rows = frame[
-        frame["query_aware"].eq(report.query_aware) & frame["method_id"].isin(report.methods)
+    rows = _compression_summary_rows(frame)
+    rows = rows[
+        rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)
     ].copy()
     rows["task_family"] = ""
     for family, tracks in TASK_GROUPS.items():
@@ -264,6 +389,8 @@ def _render_figures(
     rows: pd.DataFrame,
     report: ReportSpec,
     report_dir: Path,
+    natural_frame: pd.DataFrame | None,
+    relocated_end_frame: pd.DataFrame | None,
 ) -> list[tuple[str, str, str]]:
     """Render the compact figure set for one fairness track.
 
@@ -273,21 +400,39 @@ def _render_figures(
         rows: Main compression rows for this report.
         report: Fairness-track definition.
         report_dir: Directory receiving the report's figure files.
+        natural_frame: Optional aggregate restricted to naturally placed cases.
+        relocated_end_frame: Optional aggregate restricted to controlled relocations.
 
     Returns:
         Filename, title, and caption entries for the report HTML.
     """
     position_rows = _position_rows(frame, report)
+    end_origin_rows = (
+        _end_origin_rows(frame, natural_frame, relocated_end_frame, report)
+        if natural_frame is not None and relocated_end_frame is not None
+        else pd.DataFrame()
+    )
     if report.query_aware:
         figures = [
             _render_utility_chart(plt, rows, report, report_dir),
+            _render_natural_utility_chart(
+                plt,
+                _overall_case_pass_rows(natural_frame, report)
+                if natural_frame is not None
+                else pd.DataFrame(),
+                _cohort_size(natural_frame, report) if natural_frame is not None else 0,
+                report,
+                report_dir,
+            ),
             _render_position_chart(plt, position_rows, report, report_dir),
+            _render_end_origin_chart(plt, end_origin_rows, report, report_dir),
             _render_tradeoff_chart(plt, rows, report, report_dir),
             _render_task_chart(plt, _task_rows(frame, report), report, report_dir),
         ]
     else:
         figures = [
             _render_position_utility_chart(plt, position_rows, report, report_dir),
+            _render_end_origin_chart(plt, end_origin_rows, report, report_dir),
         ]
     if report.query_aware:
         qa_figure = _render_qa_chart(plt, _qa_rows(frame, report), report, report_dir)
@@ -339,6 +484,57 @@ def _render_utility_chart(
     )
 
 
+def _render_natural_utility_chart(
+    plt: object,
+    rows: pd.DataFrame,
+    case_count: int,
+    report: ReportSpec,
+    report_dir: Path,
+) -> tuple[str, str, str] | None:
+    """Render the natural-placement sensitivity analysis for query-aware methods.
+
+    Args:
+        plt: Matplotlib pyplot module.
+        rows: All-case pass rates from the natural-only aggregate.
+        case_count: Number of naturally placed cases represented by ``rows``.
+        report: Fairness-track definition.
+        report_dir: Directory receiving the figure.
+
+    Returns:
+        Figure metadata when natural-only rows exist, otherwise ``None``.
+    """
+    if rows.empty:
+        return None
+    figure, axis = plt.subplots(figsize=(15.5, 6.0))
+    handles: dict[str, object] = {}
+    for method_id in report.methods:
+        values = rows[rows["method_id"].eq(method_id)].sort_values("budget")
+        if values.empty:
+            continue
+        (line,) = axis.plot(
+            values["budget"],
+            values["case_pass_rate"],
+            color=_method_color(method_id),
+            label=_method_label(method_id),
+            linewidth=2.6 if method_id.startswith("trimwise_") else 1.8,
+            marker="o",
+            markersize=6,
+        )
+        handles[_method_label(method_id)] = line
+    axis.set_ylim(0, 1)
+    axis.set_xlabel("Maximum kept text (tokens)")
+    axis.set_ylabel("Task success rate")
+    axis.set_title(f"Natural-placement sensitivity (n={case_count}; positions remain unbalanced)")
+    axis.set_xticks(sorted(rows["budget"].dropna().unique()))
+    axis.grid(axis="y", alpha=0.25)
+    _save_figure(figure, report_dir / "natural_only_vs_budget.png", handles)
+    return (
+        "natural_only_vs_budget.png",
+        "Secondary check: naturally positioned cases only",
+        f"The 25 controlled relocations are excluded. This uses {case_count} saved natural cases; it is not position-balanced because only 15 natural cases have end-position evidence.",
+    )
+
+
 def _render_position_utility_chart(
     plt: object, rows: pd.DataFrame, report: ReportSpec, report_dir: Path
 ) -> tuple[str, str, str] | None:
@@ -385,7 +581,7 @@ def _render_position_utility_chart(
     return (
         "utility_by_position.png",
         "Primary result: task success by source location",
-        "Each panel shows where the needed source text appears. The report keeps these locations separate instead of hiding them in one average.",
+        "Each panel shows where the needed source text appears. The 40-case end panel combines 15 natural end cases with 25 controlled relocations, which the next figure separates.",
     )
 
 
@@ -453,7 +649,77 @@ def _render_position_chart(
     return (
         "position_robustness.png",
         "Does source location matter?",
-        "The needed source text appears at the beginning, middle, end, or several places—40 cases each. This reveals methods that work only when it appears early.",
+        "The full position-controlled suite has 40 cases at each location. The combined end column contains 15 natural end cases and 25 controlled relocations; the next figure separates them.",
+    )
+
+
+def _render_end_origin_chart(
+    plt: object, rows: pd.DataFrame, report: ReportSpec, report_dir: Path
+) -> tuple[str, str, str] | None:
+    """Render the natural-versus-relocated decomposition of end-position rows.
+
+    Args:
+        plt: Matplotlib pyplot module.
+        rows: Case-pass rates for natural, relocated, and combined end cohorts.
+        report: Fairness-track definition.
+        report_dir: Directory receiving the figure.
+
+    Returns:
+        Figure metadata when all end-origin cohorts are present, otherwise ``None``.
+    """
+    if rows.empty:
+        return None
+    budgets = sorted(rows["budget"].dropna().unique())
+    cohorts = tuple(rows["end_cohort"].drop_duplicates())
+    column_count = min(2, len(budgets))
+    row_count = (len(budgets) + column_count - 1) // column_count
+    figure, axes = plt.subplots(
+        row_count,
+        column_count,
+        figsize=(10.8, 4.2 * row_count),
+        squeeze=False,
+        sharey=True,
+    )
+    for index, budget in enumerate(budgets):
+        axis = axes.flat[index]
+        panel = rows[rows["budget"].eq(budget)]
+        values = np.full((len(report.methods), len(cohorts)), np.nan)
+        for row_index, method_id in enumerate(report.methods):
+            for column_index, cohort in enumerate(cohorts):
+                match = panel[
+                    panel["method_id"].eq(method_id) & panel["end_cohort"].eq(cohort)
+                ]
+                if not match.empty:
+                    values[row_index, column_index] = match.iloc[0]["case_pass_rate"]
+        axis.imshow(values, vmin=0, vmax=1, cmap="Blues", aspect="auto")
+        axis.set_title(f"{int(budget)} tokens")
+        axis.set_xticks(range(len(cohorts)), cohorts, fontsize=9)
+        axis.set_yticks(range(len(report.methods)))
+        if index % column_count == 0:
+            axis.set_yticklabels([_method_label(value) for value in report.methods])
+        else:
+            axis.tick_params(labelleft=False)
+        for row_index, column_index in np.ndindex(values.shape):
+            value = values[row_index, column_index]
+            if not np.isnan(value):
+                axis.text(
+                    column_index,
+                    row_index,
+                    f"{value:.0%}",
+                    ha="center",
+                    va="center",
+                    color="#ffffff" if value >= 0.55 else "#0f172a",
+                    fontsize=9,
+                    fontweight="bold",
+                )
+    for axis in axes.flat[len(budgets) :]:
+        axis.axis("off")
+    figure.subplots_adjust(bottom=0.14, hspace=0.42, wspace=0.24)
+    _save_figure(figure, report_dir / "end_origin_breakdown.png")
+    return (
+        "end_origin_breakdown.png",
+        "End-position construction check",
+        "Natural end cases (n=15), controlled end relocations (n=25), and their combined 40-case controlled end stratum are reported separately. The combined column is a weighted view of the first two, not an independent sample.",
     )
 
 
@@ -475,11 +741,11 @@ def _render_qa_chart(
         return None
     models = sorted(rows["qa_model_id"].dropna().unique())
     figure, axes = plt.subplots(
-        1, len(models), figsize=(4.5 * len(models), 4.9), squeeze=False, sharey=True
+        2, 2, figsize=(7.2, 6.8), squeeze=False, sharey=True
     )
     handles: dict[str, object] = {}
     for index, model_id in enumerate(models):
-        axis = axes[0][index]
+        axis = axes.flat[index]
         panel = rows[rows["qa_model_id"].eq(model_id)]
         for method_id in report.methods:
             values = panel[panel["method_id"].eq(method_id) & panel["budget"].notna()].sort_values(
@@ -498,24 +764,37 @@ def _render_qa_chart(
             handles[_method_label(method_id)] = line
         full_prompt = panel[panel["method_id"].eq(FULL_PROMPT_METHOD)]["qa_answer_match"].dropna()
         if not full_prompt.empty:
-            handles["Untrimmed source"] = axis.axhline(
+            handles["Uncompressed source"] = axis.axhline(
                 full_prompt.iloc[0],
                 color="#334155",
                 linestyle="--",
                 linewidth=1.5,
-                label="Untrimmed source",
+                label="Uncompressed source",
             )
         axis.set_ylim(0, 1)
-        axis.set_title(str(model_id).replace("_", " ").upper())
-        axis.set_xlabel("Maximum kept text (tokens)")
+        axis.set_title(EVALUATOR_LABELS.get(str(model_id), str(model_id)))
+        axis.set_xlabel("Context budget (tokens)")
         axis.grid(axis="y", alpha=0.25)
-        if index == 0:
-            axis.set_ylabel("Answer match rate")
-    _save_figure(figure, report_dir / "answer_pass.png", handles)
+        if index % 2 == 0:
+            axis.set_ylabel("Answer-match rate")
+    legend_axis = axes.flat[len(models)]
+    legend_axis.axis("off")
+    legend_axis.legend(
+        handles.values(),
+        handles.keys(),
+        frameon=False,
+        loc="center",
+        ncols=1,
+        fontsize="small",
+    )
+    for axis in axes.flat[len(models) + 1 :]:
+        axis.axis("off")
+    figure.subplots_adjust(left=0.10, right=0.98, bottom=0.10, top=0.92, hspace=0.35, wspace=0.24)
+    _save_figure(figure, report_dir / "answer_pass.png")
     return (
         "answer_pass.png",
-        "Answer quality after trimming",
-        "Each panel uses a different answer model. The dashed reference uses the untrimmed source and has no trimming-time point.",
+        "Downstream answer match",
+        "Each panel uses a different downstream evaluator. The dashed reference uses the complete source with the same prompt and has no compression budget.",
     )
 
 
@@ -656,7 +935,7 @@ def _save_figure(figure: object, path: Path, handles: dict[str, object] | None =
     if handles:
         figure.subplots_adjust(bottom=0.22)
     figure.subplots_adjust(top=0.92)
-    figure.savefig(path, dpi=170)
+    figure.savefig(path, dpi=170, bbox_inches="tight")
     import matplotlib.pyplot as plt
 
     plt.close(figure)
@@ -737,8 +1016,9 @@ def _reliability_markup(frame: pd.DataFrame, report: ReportSpec) -> str:
     Returns:
         HTML table of success, budget, latency, memory, and thermal metrics.
     """
-    rows = frame[
-        frame["query_aware"].eq(report.query_aware) & frame["method_id"].isin(report.methods)
+    rows = _compression_summary_rows(frame)
+    rows = rows[
+        rows["query_aware"].eq(report.query_aware) & rows["method_id"].isin(report.methods)
     ]
     if rows.empty:
         return ""
@@ -779,12 +1059,13 @@ def _reliability_markup(frame: pd.DataFrame, report: ReportSpec) -> str:
     )
 
 
-def _write_guide(report: ReportSpec, report_dir: Path) -> None:
+def _write_guide(report: ReportSpec, report_dir: Path, has_origin_sensitivity: bool) -> None:
     """Write concise metric definitions beside a report.
 
     Args:
         report: Fairness-track definition.
         report_dir: Directory receiving the Markdown guide.
+        has_origin_sensitivity: Whether natural and relocation aggregates were supplied.
     """
     access = "the source and question" if report.query_aware else "only the source"
     primary_metric = (
@@ -805,6 +1086,10 @@ def _write_guide(report: ReportSpec, report_dir: Path) -> None:
             "- **Why there is no single score**: the report does not average away differences caused by where needed text appears.",
         )
     )
+    if has_origin_sensitivity:
+        metric_definitions += (
+            "- **Position construction**: the original 250-case corpus remains unchanged. The separate 160-case evaluation contains 135 natural cases and 25 controlled relocations. The end stratum is shown as natural (n=15), relocated (n=25), and combined (n=40).",
+        )
     report_dir.joinpath("plot_guide.md").write_text(
         "\n".join(
             (
@@ -826,6 +1111,7 @@ def _write_report(
     rows: pd.DataFrame,
     figures: list[tuple[str, str, str]],
     report_dir: Path,
+    has_origin_sensitivity: bool,
 ) -> None:
     """Write one self-contained publication-style HTML benchmark report.
 
@@ -835,8 +1121,14 @@ def _write_report(
         rows: Main compression rows.
         figures: Generated figure metadata.
         report_dir: Directory receiving the report files.
+        has_origin_sensitivity: Whether natural and relocation aggregates were supplied.
     """
     figure_blocks = _figure_markup(figures)
+    position_notice = (
+        "The original 250-case corpus remains unchanged; the separate 160-case evaluation contains 135 natural cases and 25 controlled relocations. The end-position figures report natural end (n=15), relocated end (n=25), and the combined controlled end stratum (n=40)."
+        if has_origin_sensitivity
+        else "This position-controlled suite is a diagnostic of source location, not a naturally representative corpus."
+    )
     page = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -854,10 +1146,10 @@ a {{ color:var(--accent); }} .shell {{ max-width:1680px; margin:auto; padding:0 
 <body>
 <header><div class="shell"><a class="brand" href="../index.html">Trimwise benchmark</a></div></header>
 <main class="shell">
-<p>BALANCED SOURCE-LOCATION BENCHMARK</p>
+<p>POSITION-CONTROLLED EVALUATION SUITE</p>
 <h1>{escape(report.title)}</h1>
 <p class="lede">{escape(report.lede)}</p>
-<p class="notice">These results describe this dataset, task format, and hardware. A different application may produce different results.</p>
+<p class="notice">{escape(position_notice)}</p>
 {_scope_markup(rows, report)}
 <section><h2>Results</h2><div class="figure-grid">{figure_blocks}</div></section>
 <section><h2>Completion and resource use</h2><p class="lede">A useful method must finish and stay within the requested limit.</p>{_reliability_markup(frame, report)}</section>
@@ -881,7 +1173,7 @@ def _write_index(reports: list[ReportSpec], output_dir: Path) -> None:
     )
     output_dir.joinpath("index.html").write_text(
         f"""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Trimwise benchmark reports</title>
-<body style="font:18px/1.5 system-ui,sans-serif;max-width:720px;margin:10vh auto;padding:24px"><h1>Trimwise benchmark reports</h1><p>Choose whether each method receives the question. Scores from the two pages cannot be compared directly.</p><ul>{links}</ul></body></html>""",
+<body style="font:18px/1.5 system-ui,sans-serif;max-width:720px;margin:10vh auto;padding:24px"><h1>Trimwise benchmark reports</h1><p>Choose whether each method receives the question. Scores from the two pages cannot be compared directly. Each page reports the 135 natural cases separately from the 25 controlled end relocations.</p><ul>{links}</ul></body></html>""",
         encoding="utf-8",
     )
 
@@ -890,9 +1182,16 @@ def main() -> None:
     """Parse report paths and render both fair comparison reports."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", default="results/position_controlled_160_summary.csv")
+    parser.add_argument("--natural-input")
+    parser.add_argument("--relocated-end-input")
     parser.add_argument("--output-dir", default="reports")
     args = parser.parse_args()
-    plot_summary(Path(args.input), Path(args.output_dir))
+    plot_summary(
+        Path(args.input),
+        Path(args.output_dir),
+        Path(args.natural_input) if args.natural_input else None,
+        Path(args.relocated_end_input) if args.relocated_end_input else None,
+    )
 
 
 if __name__ == "__main__":

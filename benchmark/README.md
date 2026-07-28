@@ -6,9 +6,10 @@ needed to answer a question under a token ceiling. The canonical configuration i
 [`configs/position_controlled_160.yaml`](configs/position_controlled_160.yaml).
 
 The dataset has 40 cases each with required evidence at the beginning, middle, end, or multiple
-locations. It retains 135 naturally positioned cases and adds 25 provenance-linked end relocations.
-The original 250-case source corpus remains unchanged. Public-source revisions and licenses are
-recorded in [`data/manifests/source_manifest.csv`](data/manifests/source_manifest.csv); inspect
+locations. The original 250-case corpus remains unchanged; the separate 160-case evaluation
+contains 135 natural cases and 25 controlled relocations. The end stratum therefore contains 15
+natural end cases and 25 relocated end cases. Public-source revisions and licenses are recorded in
+[`data/manifests/source_manifest.csv`](data/manifests/source_manifest.csv); inspect
 [`data/position_controlled_160_review.md`](data/position_controlled_160_review.md) before treating
 the snapshot as frozen.
 
@@ -82,24 +83,48 @@ uv run python -m benchmark.runners.aggregate \
   --qa-input results/position_controlled_160_qa_gpt_5_6_luna.jsonl \
   --output results/position_controlled_160_summary.csv
 
+uv run python -m benchmark.runners.aggregate \
+  --input results/position_controlled_160_results.jsonl \
+  --dataset data/position_controlled_160.jsonl \
+  --qa-input results/position_controlled_160_qa_gpt_5_4_nano.jsonl \
+  --qa-input results/position_controlled_160_qa_gpt_5_4_mini.jsonl \
+  --qa-input results/position_controlled_160_qa_gpt_5_6_luna.jsonl \
+  --position-origin natural \
+  --output results/position_controlled_160_natural_only_summary.csv
+
+uv run python -m benchmark.runners.aggregate \
+  --input results/position_controlled_160_results.jsonl \
+  --dataset data/position_controlled_160.jsonl \
+  --qa-input results/position_controlled_160_qa_gpt_5_4_nano.jsonl \
+  --qa-input results/position_controlled_160_qa_gpt_5_4_mini.jsonl \
+  --qa-input results/position_controlled_160_qa_gpt_5_6_luna.jsonl \
+  --position-origin controlled_relocation \
+  --output results/position_controlled_160_relocated_end_summary.csv
+
 uv run python scripts/paired_stats.py
 
 uv run python -m benchmark.runners.plot \
   --input results/position_controlled_160_summary.csv \
+  --natural-input results/position_controlled_160_natural_only_summary.csv \
+  --relocated-end-input results/position_controlled_160_relocated_end_summary.csv \
   --output-dir reports
 ```
 
-The public snapshot consists of `results/position_controlled_160_summary.csv`,
+The public snapshot includes the canonical compression rows
+(`results/position_controlled_160_results.jsonl`), the three canonical evaluator row files,
+`results/position_controlled_160_summary.csv`,
+`results/position_controlled_160_natural_only_summary.csv`,
+`results/position_controlled_160_relocated_end_summary.csv`,
 `results/position_controlled_160_paired_stats.csv`, and the static report under `reports/`.
-Raw compression and API JSONL outputs stay ignored: they are resumable run state, not a reviewable
-release artifact. Open `reports/index.html`; it routes to separate query-aware and source-only
-reports.
+The raw rows let reviewers recompute the aggregates and inspect successes and failures without
+rerunning GPU models or making API calls. Other result JSONL files remain ignored as resumable local
+run state. Open `reports/index.html`; it routes to separate query-aware and source-only reports.
 
 [`data/manifests/runtime_manifest.json`](data/manifests/runtime_manifest.json) records the
 captured machine, package lock, model revisions, run settings, and SHA-256 hashes for this local
-dataset and result snapshot. It is an integrity record, not an immutable public release: publish a
-tagged archive containing the manifest and its hashed artifacts before presenting the results as a
-fully released benchmark.
+dataset and result snapshot. It is an integrity record released with the
+[`paper-v1` tagged artifact](https://github.com/tenwritehq/trimwise/tree/paper-v1), not a portable
+performance claim.
 
 **Case pass** requires all required evidence, no prohibited content, and budget compliance. A
 required span passes with exact retention or at least 80% token recall. The aggregate reports
@@ -109,8 +134,9 @@ continuations; it is not a human semantic-correctness evaluation.
 
 ## Limits
 
-This is a controlled benchmark, not a claim of universal production performance. Its 160 cases are
-balanced by evidence position but combine controlled synthetic material with pinned public-source
-extracts; labels have source-span verification. The evaluation uses
+This is a position-controlled evaluation suite, not a naturally representative corpus or a claim
+of universal production performance. Its 160 cases are balanced by evidence position but combine
+135 natural placements with 25 controlled end relocations, controlled synthetic material, and
+pinned public-source extracts; labels have source-span verification. The evaluation uses
 one saved API completion per context and has no component ablation. Hardware-dependent latency and
 memory measurements must be reported with the GPU, driver, and run date used for a released snapshot.

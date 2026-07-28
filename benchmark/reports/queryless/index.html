@@ -15,10 +15,10 @@ a { color:var(--accent); } .shell { max-width:1680px; margin:auto; padding:0 32p
 <body>
 <header><div class="shell"><a class="brand" href="../index.html">Trimwise benchmark</a></div></header>
 <main class="shell">
-<p>BALANCED SOURCE-LOCATION BENCHMARK</p>
+<p>POSITION-CONTROLLED EVALUATION SUITE</p>
 <h1>Context selection without a question</h1>
 <p class="lede">Every method receives only the source. The question is used later, after the text has been shortened.</p>
-<p class="notice">These results describe this dataset, task format, and hardware. A different application may produce different results.</p>
+<p class="notice">The original 250-case corpus remains unchanged; the separate 160-case evaluation contains 135 natural cases and 25 controlled relocations. The end-position figures report natural end (n=15), relocated end (n=25), and the combined controlled end stratum (n=40).</p>
 <dl class="facts">
 <div><dt>Information available</dt><dd>Source only</dd></div>
 <div><dt>Maximum kept text</dt><dd>128, 256, 512, 1024 tokens</dd></div>
@@ -27,15 +27,19 @@ a { color:var(--accent); } .shell { max-width:1680px; margin:auto; padding:0 32p
 </dl>
 <section><h2>Results</h2><div class="figure-grid"><article class="figure-card"><figure>
 <img src="utility_by_position.png" alt="Primary result: task success by source location" width="1600" height="960" loading="lazy">
-<figcaption><strong>Primary result: task success by source location</strong> — Each panel shows where the needed source text appears. The report keeps these locations separate instead of hiding them in one average.</figcaption>
+<figcaption><strong>Primary result: task success by source location</strong> — Each panel shows where the needed source text appears. The 40-case end panel combines 15 natural end cases with 25 controlled relocations, which the next figure separates.</figcaption>
+</figure></article>
+<article class="figure-card"><figure>
+<img src="end_origin_breakdown.png" alt="End-position construction check" width="1600" height="960" loading="lazy">
+<figcaption><strong>End-position construction check</strong> — Natural end cases (n=15), controlled end relocations (n=25), and their combined 40-case controlled end stratum are reported separately. The combined column is a weighted view of the first two, not an independent sample.</figcaption>
 </figure></article></div></section>
 <section><h2>Completion and resource use</h2><p class="lede">A useful method must finish and stay within the requested limit.</p><div class="table-wrap"><table><thead><tr>
 <th>Method</th><th>Completed</th><th>Over the limit</th><th>95th-percentile time</th><th>Typical GPU memory</th><th>Highest GPU temperature</th><th>Cooling pause</th>
-</tr></thead><tbody><tr><td>Prefix baseline</td><td>100.0%</td><td>0.0%</td><td>1.0 ms</td><td>0 MB</td><td>49 °C</td><td>0.0 s</td></tr>
-<tr><td>Head + tail baseline</td><td>100.0%</td><td>0.0%</td><td>1.4 ms</td><td>0 MB</td><td>Not recorded</td><td>0.0 s</td></tr>
+</tr></thead><tbody><tr><td>Prefix baseline</td><td>100.0%</td><td>0.0%</td><td>0.9 ms</td><td>0 MB</td><td>49 °C</td><td>0.0 s</td></tr>
+<tr><td>Head + tail baseline</td><td>100.0%</td><td>0.0%</td><td>1.3 ms</td><td>0 MB</td><td>Not recorded</td><td>0.0 s</td></tr>
 <tr><td>Trimwise Structural</td><td>100.0%</td><td>0.0%</td><td>79.4 ms</td><td>0 MB</td><td>Not recorded</td><td>0.0 s</td></tr>
-<tr><td>LLMLingua (no question)</td><td>100.0%</td><td>29.9%</td><td>186.5 ms</td><td>1368 MB</td><td>67 °C</td><td>0.0 s</td></tr>
-<tr><td>LLMLingua2</td><td>100.0%</td><td>61.7%</td><td>86.7 ms</td><td>850 MB</td><td>70 °C</td><td>12.3 s</td></tr></tbody></table></div></section>
+<tr><td>LLMLingua (no question)</td><td>100.0%</td><td>31.8%</td><td>172.3 ms</td><td>1362 MB</td><td>67 °C</td><td>0.0 s</td></tr>
+<tr><td>LLMLingua2</td><td>100.0%</td><td>58.3%</td><td>86.1 ms</td><td>850 MB</td><td>70 °C</td><td>4.1 s</td></tr></tbody></table></div></section>
 <section><h2>How scores are calculated</h2><p>See <a href="plot_guide.md">metric definitions</a>. The underlying summary data is available in the supplied CSV file.</p></section>
 </main>
 <footer><div class="shell">Benchmark summary. Results are separated by whether each method receives the question.</div></footer>

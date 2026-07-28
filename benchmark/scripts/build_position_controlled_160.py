@@ -408,8 +408,8 @@ def _render_review(cases: list[Case], source_digest: str) -> str:
         "# Position-controlled 160-case review",
         "",
         (
-            "This separate dataset preserves the natural 250-case corpus. It contains 135 "
-            "untouched natural rows and 25 source-preserving end relocations."
+            "The original 250-case corpus remains unchanged; the separate 160-case "
+            "evaluation contains 135 natural cases and 25 controlled relocations."
         ),
         "",
         f"Source dataset SHA-256: `{source_digest}`",

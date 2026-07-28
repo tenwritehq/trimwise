@@ -8,4 +8,13 @@ vendor/*.whl
 *.tar.gz
 
 !results/position_controlled_160_summary.csv
+!results/position_controlled_160_natural_only_summary.csv
+!results/position_controlled_160_relocated_end_summary.csv
 !results/position_controlled_160_paired_stats.csv
+!results/position_controlled_160_results.jsonl
+!results/position_controlled_160_qa_gpt_5_4_nano.jsonl
+!results/position_controlled_160_qa_gpt_5_4_mini.jsonl
+!results/position_controlled_160_qa_gpt_5_6_luna.jsonl
+!reports/query-aware/end_origin_breakdown.png
+!reports/query-aware/natural_only_vs_budget.png
+!reports/queryless/end_origin_breakdown.png

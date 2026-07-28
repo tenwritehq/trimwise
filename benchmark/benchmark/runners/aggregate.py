@@ -14,6 +14,7 @@ from benchmark.metrics.evidence import score_case
 from benchmark.metrics.qa import score_answer
 
 ANSWER_TRACKS = frozenset({"adversarial", "evidence_qa", "real_source"})
+POSITION_ORIGINS = ("natural", "controlled_relocation")
 
 
 def _median_or_none(values: pd.Series) -> float | None:
@@ -50,6 +51,29 @@ def _case_lookup(dataset: str) -> dict[str, dict[str, Any]]:
         Dataset cases keyed by their stable case identifiers.
     """
     return {case["case_id"]: case for case in iter_cases(dataset)}
+
+
+def _filter_rows_by_position_origin(
+    rows: list[dict[str, object]], cases: dict[str, dict[str, Any]], origin: str
+) -> list[dict[str, object]]:
+    """Keep saved rows for cases with one recorded evidence-position origin.
+
+    Args:
+        rows: Saved compression or QA rows keyed by case identifier.
+        cases: Dataset cases keyed by stable case identifier.
+        origin: Dataset origin value selected by the command-line interface.
+
+    Returns:
+        Rows associated with cases carrying the requested origin.
+    """
+    case_ids = {
+        case_id
+        for case_id, case in cases.items()
+        if case.get("metadata", {}).get("position_origin") == origin
+    }
+    if not case_ids:
+        raise ValueError(f"dataset has no cases with position origin: {origin}")
+    return [row for row in rows if str(row.get("case_id")) in case_ids]
 
 
 def _rescore_compression_rows(
@@ -93,11 +117,16 @@ def main() -> None:
     parser.add_argument("--dataset", default="data/position_controlled_160.jsonl")
     parser.add_argument("--qa-input", action="append", default=[])
     parser.add_argument("--output", default="results/position_controlled_160_summary.csv")
+    parser.add_argument("--position-origin", choices=POSITION_ORIGINS)
     args = parser.parse_args()
 
     with Path(args.input).open("r", encoding="utf-8") as source:
         rows = [json.loads(line) for line in source if line.strip()]
-    cases: dict[str, dict[str, Any]] | None = None
+    cases: dict[str, dict[str, Any]] | None = (
+        _case_lookup(args.dataset) if args.position_origin else None
+    )
+    if args.position_origin:
+        rows = _filter_rows_by_position_origin(rows, cases or {}, args.position_origin)
     if any(row.get("status") == "success" and "output" in row for row in rows):
         cases = _case_lookup(args.dataset)
         _rescore_compression_rows(rows, cases)
@@ -177,6 +206,8 @@ def main() -> None:
             qa_path = Path(qa_input)
             with qa_path.open("r", encoding="utf-8") as source:
                 qa_rows.extend(json.loads(line) for line in source if line.strip())
+        if args.position_origin:
+            qa_rows = _filter_rows_by_position_origin(qa_rows, cases or {}, args.position_origin)
         if any(row.get("qa_status") == "success" and "qa_output" in row for row in qa_rows):
             _rescore_qa_rows(qa_rows, cases or _case_lookup(args.dataset))
         qa_frame = pd.DataFrame(qa_rows)

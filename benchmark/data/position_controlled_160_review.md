@@ -1,6 +1,6 @@
 # Position-controlled 160-case review
 
-This separate dataset preserves the natural 250-case corpus. It contains 135 untouched natural rows and 25 source-preserving end relocations.
+The original 250-case corpus remains unchanged; the separate 160-case evaluation contains 135 natural cases and 25 controlled relocations.
 
 Source dataset SHA-256: `7b752ea79f19369fa151aa27f8bcfb33abdc48d9a9da609b655640e931c7d428`
 

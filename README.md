@@ -4,19 +4,52 @@
 
 > Keep the most useful parts of long text before adding it to an LLM prompt.
 
-Trimwise creates compact, high-signal excerpts from documents, blog posts, search results, logs, and tool output. 
-Instead of keeping only `text[:N]`, it can select complete
-fragments from across the source, reduce obvious repetition, and return everything inside an exact
-token, word, or character limit.
+<p align="center">
+  <img src="./assets/readme/provenance.svg" width="100%" alt="Trimwise selects useful exact source fragments and returns source-order output with original-input spans under an exact budget.">
+</p>
+
+Trimwise is built for query-aware prompt assembly. Given a question, it selects the most useful
+exact source evidence from documents, blog posts, search results, logs, and tool output under an
+exact token, word, or character budget. Instead of keeping only `text[:N]`, it can select complete
+fragments from across the source and reduce obvious repetition.
 
 The result remains extractive: retained text comes from your input, keeps its original wording, and
 appears in source order. Trimwise does not search the web, retrieve documents, query a vector
 database, or rewrite your evidence.
 
+When no question is available, `auto` falls back to bounded structural trimming for readable source
+coverage. That is a safe fallback, not the query-aware benchmark claim below.
+
 [Documentation](https://trimwise.readthedocs.io/en/latest/) ·
 [Getting started](https://trimwise.readthedocs.io/en/latest/getting-started/) ·
 [API reference](https://trimwise.readthedocs.io/en/latest/api-reference/) ·
 [PyPI](https://pypi.org/project/trimwise/)
+
+## Query-aware benchmark results
+
+On a position-controlled 160-case benchmark, each method received the same source and question.
+Trimwise Hybrid retained required source evidence more often than the evaluated query-aware
+comparators—LLMLingua, LongLLMLingua, and RECOMP—at every tested budget.
+
+<p align="center">
+  <img src="./assets/readme/query-aware-benchmark.svg" width="100%" alt="Query-aware case-pass rate by output budget on 160 position-controlled cases. Trimwise Hybrid is above LLMLingua, LongLLMLingua, and RECOMP at all four tested budgets.">
+</p>
+
+| Trimwise Hybrid case pass | 128 | 256 | 512 | 1,024 |
+| --- | ---: | ---: | ---: | ---: |
+| Observed rate | **50.6%** | **63.8%** | **66.9%** | **69.4%** |
+
+| Trimwise Hybrid at 512 tokens | Observed result |
+| --- | --- |
+| Median warm compression at 512 tokens | **43 ms** |
+| Median input-token reduction at 512 tokens | **84.7%** |
+
+Case pass requires the required source evidence to survive, prohibited content to be absent, and
+the output to fit its budget. These are observed single-run results on this benchmark; latency is
+hardware-specific and excludes cold loading and thermal cooldown. See the
+[benchmark protocol and full reports](./benchmark/README.md) for method versions, task tracks,
+failure data, and reproduction commands. The local benchmark environment resolves the repository's
+published 0.2.0 release from PyPI.
 
 ## A typical use-case
 

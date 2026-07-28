@@ -6,7 +6,7 @@
     "base_repository_head": "15236c67a5b9",
     "branch": "main",
     "source_revision_status": "This was the base repository revision when the local snapshot was collected. The Git commit containing this manifest identifies the snapshot contents; the hashes below remain the artifact-level integrity check.",
-    "public_release_status": "This is not yet a tagged public release."
+    "public_release_status": "Released in the annotated paper-v1 Git tag; that tag freezes the public artifact snapshot."
   },
   "platform": {
     "operating_system": "Fedora Linux 44 (KDE Plasma Desktop Edition)",

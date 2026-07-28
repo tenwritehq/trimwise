@@ -116,7 +116,7 @@
 
 \title{Trimwise: Exact-Budget Extractive Context Selection for Language
 Model Inputs}
-\author{Aakash Howlader\\\small Independent Researcher / AATBit Labs}
+\author{Aakash Howlader\\\small Independent Researcher}
 \date{}
 
 \begin{document}
@@ -125,27 +125,25 @@ Model Inputs}
 \begin{abstract}
 
 Long source documents often exceed the portion of a language-model
-prompt that an application can afford to allocate, yet applications may
-still need retained text to remain readable, exact, and citable. We
-present Trimwise, an extractive context-selection system for one
-already-chosen source document. Trimwise segments the original string
-into source-backed candidates, ranks them with structural, lexical,
-semantic, or hybrid signals, applies diversity-aware selection, composes
-the result under a strict configurable budget, restores source order,
-and returns original-input character spans for retained source text. We
-evaluate query-aware selection on a 160-case, position-controlled suite
-with required evidence at the beginning, middle, end, or multiple
-locations. At 128/256/512/1,024-token ceilings, Trimwise Hybrid attains
-50.6/63.8/66.9/69.4\% source case pass, compared with
-33.1/38.1/48.1/55.6\% for the closest evaluated comparator, an
-extractive RECOMP-style adapter. The result is limited: queryless
-structural trimming is not the strongest source-only baseline,
-multiple-evidence and instruction-survival cases remain difficult, and
-the benchmark's downstream-answer diagnostic is not a general reasoning
-evaluation. The contribution is therefore a source-faithful, query-aware
-prompt-assembly primitive and a scoped evaluation of its
-evidence-selection behavior, not a claim of universal prompt-compression
-superiority.
+prompt available to an application, even when the retained text must
+remain readable, exact, and citable. We present Trimwise, an extractive
+context-selection system for one already-chosen source document.
+Trimwise segments the original string into source-backed candidates,
+ranks them with structural, lexical, semantic, or hybrid signals,
+selects a diverse subset under a strict configurable budget, restores
+source order, and returns original-input character spans for retained
+text. We evaluate query-aware selection on a 160-case,
+position-controlled suite with required evidence at the beginning,
+middle, end, or multiple locations. At 128/256/512/1,024-token
+ceilings, Trimwise Hybrid obtains 50.6/63.8/66.9/69.4\% case pass,
+compared with 33.1/38.1/48.1/55.6\% for the closest evaluated
+comparator, an extractive RECOMP-style adapter. The evaluation also
+identifies difficult settings: multiple-evidence and
+instruction-survival cases, and source-only selection where simple
+positional baselines are stronger. Trimwise is intended as a
+source-faithful, query-aware prompt-assembly primitive; the downstream
+answer experiment is reported separately from the source-evidence
+evaluation.
 \end{abstract}
 
 \section{Introduction}\label{introduction}
@@ -162,8 +160,8 @@ is which parts of the source should survive when it does not.
 
 The simplest answer is positional truncation: retain the first \emph{N}
 tokens, or retain a prefix and suffix. These policies are cheap and
-predictable, but they assume that important evidence occurs at where the
-policy looks. A repository decision may sit near the end of a design
+predictable, but they assume that important evidence occurs in the
+regions they preserve. A repository decision may sit near the end of a design
 note; a constraint may be embedded in a middle section; and an answer
 may depend on two distant passages. A prompt can therefore stay within
 budget while silently losing the information needed for the next task.
@@ -180,14 +178,11 @@ agent must cite a file and line range, show a reviewer what it used,
 preserve code or policy wording, or diagnose why a later answer was
 made.
 
-This paper studies context selection under that constraint. We define
-the task as selecting an ordered set of source-backed fragments under a
-strict measured budget. The returned text may omit large parts of the
-source, but selected source content remains verbatim and recoverable
-through original-input spans. The goal is not to summarize a document,
-retrieve documents from a corpus, or produce a globally optimal subset.
-It is to make an explicit, inspectable selection from one already-chosen
-source before that source enters a larger prompt.
+This paper studies context selection under that constraint. The task is
+to choose an ordered set of source-backed fragments under a strict
+measured budget. Selection operates on one already-chosen source:
+surviving text remains verbatim and recoverable through original-input
+spans before it enters a larger prompt.
 
 We introduce \textbf{Trimwise}, an extractive context-selection library
 for this setting. Trimwise maps a Markdown or plain-text source into
@@ -196,10 +191,8 @@ query-aware signals, discourages redundant selections, and repeatedly
 measures the fully composed result before accepting a candidate. It
 restores selected source content to original order and returns
 provenance spans for the retained ranges. Query-aware strategies use a
-supplied question to prioritize evidence; when no question is available,
-the same system can use structural coverage as a bounded, readable
-fallback. The latter is a capability, not the central empirical claim of
-this paper.
+supplied question to prioritize evidence; without a question, the system
+uses structural coverage to produce a bounded, readable fallback.
 
 The work makes four contributions:
 
@@ -226,10 +219,9 @@ The work makes four contributions:
   time, resource use, failures, and limitations separately.
 \end{enumerate}
 
-The remainder of the paper first defines the problem and its hard
-boundaries, then describes the method and evaluation. Claims about
-comparative performance are reserved for the results section and are
-scoped to the evaluated tasks, budgets, models, and hardware.
+The remainder of the paper defines the problem, describes the method,
+and reports the evaluation on the stated tasks, budgets, models, and
+hardware.
 
 \section{Problem Definition}\label{problem-definition}
 
@@ -505,12 +497,12 @@ inferred from a target-token argument in another library.
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1304}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1739}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1739}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1739}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1739}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1739}}@{}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1600}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1680}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1680}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1680}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1680}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1680}}@{}}
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Method family
@@ -531,16 +523,16 @@ Learned model required
 \endlastfoot
 Prefix or head--tail truncation & No & No & Yes, with a fixed counter &
 Yes & No \\
-Retrieval-style passage selection & Usually no & Usually &
-Implementation-dependent & Implementation-dependent & Optional \\
-Token-pruning prompt compression & May alter local wording & Sometimes &
-Implementation-dependent & Implementation-dependent & Usually \\
-RECOMP-style extractive compression & No semantic rewriting; adapter
-normalizes sentence edges & Yes & Implementation-dependent &
+Retrieval passage selection & Usually no & Usually &
+Varies & Varies & Optional \\
+Token-pruning compression & May alter local wording & Sometimes &
+Varies & Varies & Usually \\
+RECOMP extractive compression & No semantic rewriting; adapter
+normalizes sentence edges & Yes & Varies &
 Adapter-dependent & Yes \\
-Trimwise Structural or Lexical & No & Structural: no; Lexical: yes & Yes
+Trimwise: Structural / Lexical & No & Structural: no; Lexical: yes & Yes
 & Yes & No \\
-Trimwise Semantic or Hybrid & No & Yes & Yes & Yes & Optional \\
+Trimwise: Semantic / Hybrid & No & Yes & Yes & Yes & Optional \\
 \end{longtable}
 }
 
@@ -556,23 +548,21 @@ observed scores.
 \section{Trimwise}\label{trimwise}
 
 Trimwise implements the constrained selection problem in five stages: it
-validates and measures the input, segments the original string into
-source-backed candidates, estimates each candidate's usefulness, selects
-a non-redundant subset that fits, and composes the subset in source
-order. The stages share one composition and measurement path, so
-strategy choice changes the relevance signal rather than the budget or
-provenance contract. This section describes the algorithmic choices that
-matter for reproducing the method; public configuration and API details
-are deliberately omitted.
+measures the input, segments the original string into source-backed
+candidates, estimates candidate usefulness, selects a non-redundant
+subset that fits, and composes that subset in source order. The stages
+share one composition and measurement path; strategies alter the
+relevance signal while retaining the same budget and provenance
+contract. This section specifies the algorithmic choices needed to
+reproduce the method.
 
-\subsection{Design Goals}\label{design-goals}
+\subsection{Design Requirements}\label{design-goals}
 
-Trimwise is designed for the point at which an application has already
-chosen a source document but cannot send all of it to a language model.
-Its design separates properties that the library can enforce from
-properties that depend on a query, embedding model, and downstream task.
-The following goals determine the pipeline described in the remainder of
-this section.
+Trimwise addresses the point at which an application has already chosen
+a source document but cannot send all of it to a language model. Its
+design distinguishes enforceable output properties from effectiveness
+that depends on the query, embedding model, and downstream task. The
+following requirements organize the pipeline.
 
 \textbf{Strict budget compliance.} The library must treat a requested
 limit as an upper bound on the fully composed excerpt, rather than as a
@@ -842,13 +832,11 @@ budget contracts described above.
 \subsubsection{Semantic relevance}\label{semantic-relevance}
 
 Semantic mode ranks a query against the same contextual candidate
-passages used by the lexical scorer, but replaces lexical overlap with
-similarity between independently produced vectors. This follows the
-sentence-embedding retrieval pattern in which text representations can
-be compared by cosine similarity \citep{reimers-gurevych-2019-sentence}.
-It does not require Sentence-BERT itself, nor does it imply that every
-embedding model gives equally useful relevance estimates for a
-particular domain or language.
+passages used by the lexical scorer. It represents the query and each
+passage as vectors and ranks them by cosine similarity, following the
+sentence-embedding retrieval pattern
+\citep{reimers-gurevych-2019-sentence}. Embedding quality remains a
+property of the chosen model and domain.
 
 For a query vector \(v_q\) and candidate-passage vector \(v_i\),
 Trimwise validates that one query vector and exactly one passage vector
@@ -868,39 +856,26 @@ scores within the source and combines them with the fixed lightweight
 signal before selection. The passage vectors also provide the dense
 similarity representation used later by the diversity objective.
 
-The core package accepts either a synchronous or asynchronous callback
-supplied by the caller. A callback receives the query separately from
-the contextual passages and owns the embedding model or service,
-batching, caching, authentication, and rate limiting. A synchronous
-callback runs on a worker thread when called through the asynchronous
-API; a native asynchronous callback is awaited on the caller's event
-loop, while preparation, normalization, ranking, and selection remain
-off that loop. Invalid callback output and backend failures raise a
-semantic-backend error rather than silently falling back to lexical
-ranking.
+Embeddings may be supplied by the application or generated through an
+optional FastEmbed backend. The application-owned path leaves model
+choice, batching, caching, authentication, and concurrency to the
+application; Trimwise validates the returned vectors before scoring. The
+execution boundary is an implementation detail and does not alter the
+selection algorithm.
 
-When no callback is supplied, Trimwise can lazily load an optional
-FastEmbed backend. The current default model identifier is
-\texttt{sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+For the managed path, the default model identifier is
+\url{sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
 \citep{sentence-transformers-paraphrase-multilingual-minilm-l12-v2}. Its
 model card describes a 384-dimensional sentence-and-paragraph embedding
-model covering 50 languages. Callers may replace the identifier through
-configuration. The managed backend caches one model per \texttt{Trimmer}
-instance, serializes its inference calls, and embeds passages in
-configured batches. The source does not pin a model revision or artifact
-hash; a model-card citation identifies the intended artifact but does
-not freeze it. Accordingly, a reproducible experiment using this path
-must record the installed FastEmbed version, provider options, model
-revision or artifact hash obtained at run time, and any caller-supplied
-model or callback details. Structural and lexical calls never load this
-backend, and an input that already fits returns before any embedding
-work is requested.
+model covering 50 languages. The identifier is configurable. A
+reproducible managed-backend experiment records the FastEmbed version,
+provider options, and model revision or artifact hash observed at run
+time; an application-supplied path records the corresponding model or
+service details.
 
-Cosine similarity measures proximity in an embedding space, not factual
-correctness, authority, recency, negation, or whether selected passages
-jointly answer the question. Semantic scoring is therefore a relevance
-heuristic whose quality must be measured on the intended task, not a
-guarantee supplied by the API.
+Cosine similarity captures proximity in an embedding space, not factual
+correctness, authority, recency, negation, or joint answer sufficiency.
+The evaluation therefore measures semantic ranking on the intended task.
 
 \subsubsection{Hybrid relevance}\label{hybrid-relevance}
 
@@ -1171,12 +1146,9 @@ version 0.2.0. Its core dependencies are \texttt{markdown-it-py} for
 source-aware parsing, NumPy for vector operations, and Tiktoken for
 default token measurement and lexical terms. Semantic inference is
 optional through the \texttt{fastembed} or \texttt{fastembed-gpu}
-extras, while callers may instead provide their own synchronous or
-asynchronous embedding callback. A managed FastEmbed model is cached and
-serialized per \texttt{Trimmer} instance; callback-owned models retain
-the caller's own concurrency, caching, and rate limit policy. Async
-entry points move CPU-side preparation and selection off the event loop
-but do not change the algorithmic work described above.
+extras, while an application may instead supply embeddings from its own
+model or service. The experiment record identifies the selected backend
+and its relevant model configuration.
 
 \section{Experimental Setup}\label{experimental-setup}
 
@@ -1186,11 +1158,9 @@ The primary evaluation concerns query-aware selection from one
 already-chosen source. Every method within that comparison receives the
 same case query during compression; depending on the task, that query is
 a question, instruction, procedure, or structured-data request.
-Source-only methods are not pooled into the same aggregate. The
-benchmark repository retains a separate source-only diagnostic, but this
-paper does not use it to support a query-aware claim. The following
-questions therefore define the main evaluation and the reporting
-boundaries for its results.
+Source-only methods are reported in a separate diagnostic and are not
+pooled into the query-aware aggregate. The research questions below
+define the main evaluation and its reporting boundaries.
 
 \textbf{RQ1 --- Evidence preservation and task utility.} Under a shared
 query and token budget, how often does each method retain the required
@@ -1250,6 +1220,9 @@ before method execution, uses seed 20260718, and has SHA-256 digest
 The evaluation set is therefore a fixed derived artifact, rather than a
 sample selected after inspecting compressor results.
 
+The original 250-case corpus remains unchanged; the separate 160-case
+evaluation contains 135 natural cases and 25 controlled relocations.
+
 The cases cover six task tracks: 46 evidence-question-answering cases,
 30 real-source evidence cases, 26 instruction-survival cases, 21
 structured-data cases, 20 procedure-survival cases, and 17 adversarial
@@ -1266,10 +1239,10 @@ Evidence position is an explicit experimental factor. The set contains
 exactly 40 cases with all required evidence near the beginning of the
 context, 40 in the middle, 40 at the end, and 40 with required evidence
 in multiple locations. Of these rows, 135 preserve their natural source
-placement. The remaining 25 are controlled end-position variants. For
-each variant, one required span that occurred exactly once in an unused
-source case was moved unchanged to the end of the same context; the
-original source case was excluded from the 160-case set. The
+placement; 25 are controlled end-position variants. For each variant,
+one required span that occurred exactly once in an unused source case was
+moved unchanged to the end of the same context; the original source case
+was excluded from the 160-case set. The
 construction script verifies the new offsets, exact required text,
 unique provenance, distinct variant source documents, and the
 40/40/40/40 balance. The accompanying review manifest records every
@@ -1280,8 +1253,9 @@ variant and its parent case.
 \pandocbounded{\includegraphics[width=\linewidth]{figures/position-controlled-160.pdf}}
 \caption{Position-controlled construction of the 160-case evaluation. The
 original 250-case source corpus remains unchanged; the separate evaluation set
-has 40 cases in every evidence-position stratum, including 25 provenance-linked,
-source-preserving end relocations.}
+has 135 natural cases and 25 controlled relocations. It has 40 cases in every
+evidence-position stratum, including 25 provenance-linked, source-preserving
+end relocations.}
 \end{figure}
 
 This construction addresses a concrete threat to positional benchmarks:
@@ -1291,7 +1265,11 @@ evidence. In particular, relocation changes local discourse context
 around a required span and should be interpreted as a controlled
 diagnostic, not as a claim that all long documents end with an isolated
 answer. We consequently report results by position as well as aggregates
-over the position-balanced set.
+over the position-balanced set. We also re-aggregate the saved rows after
+excluding all 25 relocations. This 135-case natural-only sensitivity
+analysis contains 40 beginning, 40 middle, 15 end, and 40 multiple-evidence
+cases; it is intentionally not position-balanced. No compressor or evaluator
+is run again for this analysis.
 
 Contexts range from 1,423 to 100,897 Python characters, with a median of
 9,362 characters. There are 120 cases with one required span, 6 with
@@ -1543,23 +1521,21 @@ API token-usage fields. Aggregate CSVs and figures are generated from
 those saved rows, so scorer corrections do not require another model
 run.
 
-The benchmark code, data, reports, and raw result rows are committed in the
-local snapshot. The local runtime manifest at
-\url{benchmark/data/manifests/runtime_manifest.json} records environment,
-model revisions, settings, and file hashes, but was captured after the saved
-rows rather than automatically at runner start. It improves traceability, but
-the snapshot is not yet a tagged public release. Absolute latency and memory
-comparisons should therefore be independently reproduced from a tagged
-artifact on a documented machine before publication.
+The benchmark snapshot includes the code, data, reports, and raw result
+rows. Its runtime manifest at
+\url{benchmark/data/manifests/runtime_manifest.json} records the
+environment, model revisions, settings, and file hashes. The manifest was
+captured after the saved rows, so it documents this run rather than
+providing a pre-run environment snapshot. Latency and memory measurements
+remain specific to the documented machine and should be reproduced from a
+tagged artifact before being treated as portable performance estimates.
 
 \section{Results}\label{results}
 
 All results in this section come from the frozen 160-case set and saved
-outputs described in Section 5. We report query-aware and source-only
-conditions separately. A result is an observation on this suite,
-configuration, and runtime---not evidence that the ordering will hold on
-arbitrary documents, task prompts, downstream models, or future versions
-of the compared packages.
+outputs described in Section 5. Query-aware and source-only conditions
+are reported separately. The reported ordering concerns this suite,
+configuration, and runtime.
 
 \subsection{Query-Aware Source-Evidence
 Results}\label{query-aware-source-evidence-results}
@@ -1575,13 +1551,13 @@ on this suite.
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1111}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1481}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1481}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1481}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1481}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1481}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1481}}@{}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.2000}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1333}}@{}}
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Method
@@ -1604,10 +1580,10 @@ Median warm trim time
 \endlastfoot
 Trimwise Lexical & 53.8\% & 61.3\% & 62.5\% & 66.3\% & 0.0\% & 6.4 ms \\
 Trimwise Hybrid & 50.6\% & 63.8\% & 66.9\% & 69.4\% & 0.0\% & 42.8 ms \\
-RECOMP-style extractive & 33.1\% & 38.1\% & 48.1\% & 55.6\% & 0.0\% &
+RECOMP extractive & 33.1\% & 38.1\% & 48.1\% & 55.6\% & 0.0\% &
 126.2 ms \\
 LLMLingua & 3.8\% & 8.1\% & 15.6\% & 39.4\% & 30.6\% & 168.0 ms \\
-LongLLMLingua & 0.6\% & 5.0\% & 8.1\% & 23.1\% & 55.8\% & 340.7 ms \\
+LongLLM\allowbreak Lingua & 0.6\% & 5.0\% & 8.1\% & 23.1\% & 55.8\% & 340.7 ms \\
 \end{longtable}
 }
 
@@ -1615,17 +1591,14 @@ Table 1: Query-aware case-pass rate over 160 position-controlled cases.
 Warm trim time excludes calls marked as model-cold and excludes thermal
 waiting; it remains machine-specific.
 
-The aggregate does not mean that every task family improved. At 256
-tokens, Hybrid passes 84.8\% of the evidence-QA track, 73.3\% of the
-real-source track, 70.0\% of the procedure track, and 100\% of the
-structured track, but 35.3\% of the adversarial track and 0\% of the
-instruction track. The same zero case-pass rate persists for both
-Trimwise query-aware strategies on the instruction track at every tested
-budget. This is not a minor statistical footnote: the case-pass
-conjunction is exposing a genuine mismatch between the current
-selector/evaluation setup and these instruction-survival tasks. Any
-claim that Trimwise is a general-purpose instruction compressor would be
-unsupported by these results.
+Aggregate rates conceal substantial track variation. At 256 tokens,
+Hybrid passes 84.8\% of the evidence-QA track, 73.3\% of the real-source
+track, 70.0\% of the procedure track, and 100\% of the structured track,
+compared with 35.3\% of the adversarial track and 0\% of the instruction
+track. Both query-aware Trimwise strategies retain a zero instruction
+case-pass rate at every tested budget. On these instruction-survival
+tasks, the current selector and case-pass criterion do not align with
+the required output format.
 
 \subsection{Behaviour Across Budgets}\label{behaviour-across-budgets}
 
@@ -1637,15 +1610,23 @@ track-balanced summary complements the all-case rate over the position-balanced
 160-case set; the aggregates answer different weighting questions.}
 \end{figure}
 
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[keepaspectratio,alt={All-case query-aware pass rate by budget after excluding controlled relocations.}]{../../../benchmark/reports/query-aware/natural_only_vs_budget.png}}
+\caption{Natural-only sensitivity analysis. These all-case rates use the 135
+naturally positioned rows and exclude all 25 controlled relocations. The
+natural subset has only 15 end-position cases, so it is not a position-balanced
+replacement for the primary 160-case controlled diagnostic.}
+\label{fig:natural-only-sensitivity}
+\end{figure}
+
 Increasing the ceiling helps every query-aware comparator, but not to
 the same extent. Hybrid rises from 50.6\% to 69.4\% case pass between
 128 and 1,024 tokens, while RECOMP rises from 33.1\% to 55.6\%.
 LLMLingua shows the largest late-budget change, from 3.8\% to 39.4\%,
-and LongLLMLingua from 0.6\% to 23.1\%. The result is therefore not a
-simple fixed ranking caused solely by a severe token limit: RECOMP and
-LLMLingua become more competitive as they are allowed to retain more
-text, even though they do not overtake the two Trimwise configurations
-on this suite.
+and LongLLMLingua rises from 0.6\% to 23.1\%. RECOMP and LLMLingua gain
+more from additional capacity, although neither overtakes the two
+Trimwise configurations on this suite.
 
 The paired Hybrid--RECOMP case-pass difference is 17.5 percentage points
 at 128 tokens (95\% bootstrap interval 8.8 to 26.3), 25.6 points at 256
@@ -1654,6 +1635,13 @@ at 128 tokens (95\% bootstrap interval 8.8 to 26.3), 25.6 points at 256
 LongLLMLingua are also positive at all four budgets; the complete paired
 table is provided in Appendix B. These intervals describe the selected
 160 cases only, as specified in Section 5.7.
+
+The natural-only sensitivity analysis has the same broad ordering without
+claiming position balance. At 256 tokens, Hybrid passes 64.4\% of the 135
+natural cases and Lexical passes 63.7\%, compared with 33.3\% for RECOMP.
+At 1,024 tokens, their rates are 70.4\%, 68.9\%, and 51.1\%, respectively.
+The analysis reuses saved outputs and is descriptive; the smaller natural-end
+subset does not support a separate position-balanced inference.
 
 The additional budget is not always filled. Hybrid's median output is
 126, 253, 253, and 263 tokens at the four ceilings; Lexical's is 126,
@@ -1672,9 +1660,32 @@ evidence remains the hardest condition at every budget, reaching only
 stratum from concealing this failure mode; it does not make the task
 equally difficult across strata.
 
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[keepaspectratio,alt={Query-aware case-pass rates split into natural end, controlled relocated end, and their combined controlled end stratum.}]{../../../benchmark/reports/query-aware/end_origin_breakdown.png}}
+\caption{End-position construction check. Natural end cases (\(n=15\)),
+controlled end relocations (\(n=25\)), and their combined controlled end
+stratum (\(n=40\)) are shown separately for each query-aware method and
+budget. The combined column is a weighted view of the first two columns, not
+an independent sample.}
+\label{fig:end-origin-breakdown}
+\end{figure}
+
+The end split reinforces why the 160-case suite is a controlled diagnostic.
+At 256 tokens, natural end cases give Lexical, Hybrid, and RECOMP pass rates
+of 80.0\%, 73.3\%, and 13.3\%, whereas controlled relocations give 48.0\%,
+60.0\%, and 64.0\%. Relocation therefore changes more than a global position
+label for some methods, plausibly through the span's local context and the
+composition of the remaining source. We report the combined 40-case end
+stratum for the balanced primary diagnostic, but do not interpret it as an
+estimate of naturally occurring end-evidence performance.
+
 \subsection{Downstream Answer
 Transfer}\label{downstream-answer-transfer}
 
+Figure~\ref{fig:downstream-answer-match} reports the downstream diagnostic
+directly. The dashed reference is the complete source under the same prompt
+and evaluator, while each solid line receives a budgeted compressed context.
 The source-evidence result transfers only partly to generated answers.
 Across the 93 answerable cases, full context reaches 44.1\%, 45.2\%, and
 45.2\% answer match for GPT-5.4 Nano, GPT-5.4 Mini, and GPT-5.6 Luna
@@ -1686,16 +1697,27 @@ substantially lower under the same metric; for example, RECOMP ranges
 from 8.6\% to 17.2\% for Nano and 7.5\% to 15.1\% for Mini across the
 four budgets.
 
-These figures do \emph{not} establish that compression improves a
-language model. The full-context reference itself is only about 44--45\%
-under the permissive answer-match rule, the evaluator is
-nondeterministic, each context has one generation, and public-source
-knowledge can leak into an answer. The appropriate statement is
-narrower: on this diagnostic, the Trimwise excerpts preserved
-answer-match outcomes near the full-context reference at several
-budgets, whereas the compared compressed outputs did not. This is
-consistent with the source-evidence results, but it is not a substitute
-for a repeated, task-validated downstream evaluation.
+\begin{figure}
+\centering
+\includegraphics[width=\linewidth]{../../../benchmark/reports/query-aware/answer_pass.png}
+\caption{Downstream answer-match rate on the 93 answerable cases. Solid
+lines show compressed contexts at each token budget; the dashed line aggregates
+one complete-source answer per case with the same prompt and evaluator. Answer
+match is the automatic token-containment measure defined in Section~5.6;
+each point uses one sampled completion. The complete-source line has no
+compression budget and is a reference, not a guaranteed upper bound on
+generated-answer quality.}
+\label{fig:downstream-answer-match}
+\end{figure}
+
+The answer diagnostic is intentionally secondary to source-evidence
+selection. Its automatic token-containment rule is permissive, each
+context receives one nondeterministic generation, and public-source
+knowledge may contribute to an answer. Within that diagnostic, Trimwise
+excerpts remain near the complete-source reference at several budgets,
+while the evaluated comparator outputs are lower. Repeated,
+task-validated downstream evaluation is needed to assess generated-answer
+quality more directly.
 
 \subsection{Source-Only Diagnostic}\label{source-only-diagnostic}
 
@@ -1709,26 +1731,22 @@ multiple positions respectively. Trimwise Structural reaches 10.0\%,
 18.1\%, compared with 33.1\% for head--tail and 23.1\% for
 first-\emph{N}.
 
-Thus, the present source-only benchmark does not support positioning
-Trimwise Structural as the best queryless compressor. It does show that
-a source-order structural fallback can preserve some end evidence that
-prefix truncation misses, but that is a limited capability statement.
-The product claim supported by this paper is query-aware source
-selection; structural trimming remains a readable, bounded fallback when
-an application has no useful query.
+Within the source-only condition, head--tail is the strongest aggregate
+baseline. Structural trimming retains some end evidence that prefix
+truncation misses and serves as a readable, bounded fallback when an
+application has no useful query. The main empirical evaluation in this
+paper concerns query-aware source selection.
 
 \subsection{Budget Compliance and
 Runtime}\label{budget-compliance-and-runtime}
 
 Every one of the 6,400 saved compression calls returned a successful
-runner status. Successful execution is not equivalent to budget
-compliance: LLMLingua exceeded the shared counter ceiling in 196 of 640
-query-aware calls (30.6\%), with a maximum 139-token overflow, and
+runner status. Under the shared counter, LLMLingua exceeded the ceiling
+in 196 of 640 query-aware calls (30.6\%), with a maximum 139-token overflow, and
 LongLLMLingua did so in 357 calls (55.8\%), with a maximum 169-token
 overflow. Both Trimwise methods and the RECOMP-style adapter have zero
 measured violations. Their mean utilization differs: 72.1\% for Lexical,
-69.8\% for Hybrid, and 99.3\% for RECOMP. This is a design trade-off,
-not an accuracy ranking in itself.
+69.8\% for Hybrid, and 99.3\% for RECOMP.
 
 On the recorded machine, warm median trim time is 6.4 ms for Lexical,
 42.8 ms for Hybrid, 126.2 ms for RECOMP, 168.0 ms for LLMLingua, and
@@ -1738,36 +1756,32 @@ LLMLingua, and 1,193 MB for LongLLMLingua. These figures include the
 benchmark adapters and their resident framework state, and p95 latency
 remains large for the model-backed methods (156 ms, 1,442 ms, 1,161 ms,
 and 2,252 ms respectively for Hybrid, RECOMP, LLMLingua, and
-LongLLMLingua). They are useful operational measurements for this
-configuration, but cannot be promoted to portable speed or memory claims
-without an immutable reproduction from the documented local snapshot
-described in Section 5.8.
+LongLLMLingua). These measurements include the adapters and resident
+framework state. They characterize the documented runtime configuration;
+portable speed or memory estimates require reproduction on a specified
+machine.
 
 \section{Analysis}\label{analysis}
 
-\subsection{What This Study Does Not
-Ablate}\label{what-this-study-does-not-ablate}
+\subsection{Component Scope}\label{what-this-study-does-not-ablate}
 
-This study compares deployed configurations rather than isolating every
-component of Trimwise. Lexical and Hybrid differ in more than one
-operation at runtime: Hybrid requests semantic vectors, combines
+This study compares complete deployed configurations. Lexical and Hybrid
+differ in several operations: Hybrid requests semantic vectors, combines
 normalized lexical and semantic scores, and can use dense similarity
-during MMR. Their observed difference therefore does not identify the
-causal contribution of embeddings, score fusion, or dense diversity.
-Similarly, the comparison with sentence-level RECOMP, token-pruning
-LLMLingua, and LongLLMLingua changes both algorithmic design and
-implementation stack. It cannot establish that one isolated Trimwise
-choice explains the observed outcome.
+during MMR. Their observed difference is consequently a
+configuration-level effect, not an estimate of the individual
+contributions of embeddings, score fusion, or dense diversity. The
+comparisons with sentence-level RECOMP, token-pruning LLMLingua, and
+LongLLMLingua likewise combine differences in algorithm and
+implementation stack.
 
-The available contrast is still operationally useful. Lexical is the
-fastest query-aware Trimwise configuration and has the highest observed
-128-token case-pass rate; Hybrid is modestly stronger at the larger
-ceilings. This supports a configuration choice under the evaluated
-workload, not a claim that semantic retrieval is universally better. A
-proper ablation must freeze one source corpus and then vary exactly one
-of segmentation granularity, lexical score, semantic score, hybrid
-fusion, MMR, query-aware evidence cutoff, or source-order reconstruction
-at a time.
+The comparison still informs configuration choice on the evaluated
+workload: Lexical is fastest and has the highest observed 128-token
+case-pass rate, while Hybrid is modestly stronger at larger ceilings. An
+ablation study would hold the source corpus and all other choices fixed
+while varying segmentation granularity, lexical score, semantic score,
+hybrid fusion, MMR, query-aware evidence cutoff, or source-order
+reconstruction one at a time.
 
 \subsection{Observed Failure Modes}\label{observed-failure-modes}
 
@@ -1787,9 +1801,9 @@ keys and prohibits Markdown. At the 1,024-token ceiling, Hybrid retains
 a nearby but different threshold rule, \texttt{RULE-5-B}, about when
 automatic approval is disallowed, while omitting \texttt{RULE-5-A}. The
 saved result has no prohibited phrase and remains within budget, but
-fails its sole required span. This is a useful failure because it is not
-caused by positional truncation: the selector retrieves a semantically
-related policy constraint that is insufficient for the task.
+fails its sole required span. The failure is distinct from positional
+truncation: the selector retrieves a semantically related policy
+constraint that is insufficient for the task.
 
 Third, the strict case-pass conjunction makes partial success visible as
 failure. A method that retains three out of four required items receives
@@ -1830,55 +1844,44 @@ choose that trade-off after validating it on their own documents.
 
 \subsection{Qualitative Trace}\label{qualitative-trace}
 
-The \texttt{instruction-05-q1} case also illustrates why provenance is a
-product requirement separate from the benchmark score. The required
-interval can be identified in the original source as the exact
+The \texttt{instruction-05-q1} case illustrates the value of provenance
+separate from the benchmark score. The required interval can be
+identified in the original source as the exact
 \texttt{RULE-5-A} span at character offsets 435--541. The saved Hybrid
 output at 1,024 tokens contains the exact but different
 \texttt{RULE-5-B} threshold text, plus background blocks and omission
-markers. A caller that keeps the source identity and Trimwise-style
-spans can show a reviewer that the output-schema rule was not retained;
-a caller that receives only a compressed string has a harder time
-diagnosing the omission. This example is illustrative, not a primary
-result, and does not establish that all errors are explainable through
-spans. It does demonstrate the practical difference between
-source-backed selection and an opaque compressed prompt.
+markers. Retaining source identity and spans makes the omitted
+output-schema rule inspectable; a compressed string alone leaves the
+omission harder to diagnose. This trace is illustrative and complements
+the quantitative results.
 
 \section{Discussion}\label{discussion}
 
-\subsection{What the Results
-Establish}\label{what-the-results-establish}
+\subsection{Interpretation of Results}\label{what-the-results-establish}
 
-Within this position-controlled benchmark, a supplied query materially
+Within this position-controlled benchmark, supplying a query materially
 changes the context-selection problem. The two query-aware Trimwise
-configurations preserve the benchmark's required source evidence more
-often than the evaluated query-aware comparators across the four tested
-ceilings, and they satisfy the shared token counter more reliably. The
-result remains bounded by the task suite: it is evidence about a single
-already-selected source, supplied source-evidence annotations, these
-specific adapter configurations, and a fixed set of budgets. It does not
-show that Trimwise improves general language-model reasoning, replaces
-retrieval, or preserves all information that a document contains.
+configurations retain required source evidence more often than the
+evaluated query-aware comparators at all four ceilings and satisfy the
+shared token counter more reliably. These findings concern selection
+from one already-chosen source under the supplied annotations, adapter
+configurations, and budgets.
 
-The implementation makes a separate, stronger claim about output
-mechanics. Trimwise composes exact source slices under its configured
-measurement rule, preserves source order, and exposes original
-Python-string spans for retained source ranges. These are inspectable
-software properties rather than empirical quality scores. They are
-valuable even when a ranking decision is wrong, because they allow the
-application to map an omission or a retained fragment back to its own
-file, revision, and line metadata.
+The implementation contributes a separate output contract. Trimwise
+composes exact source slices under its configured measurement rule,
+preserves source order, and exposes original Python-string spans for
+retained ranges. These properties let an application map a retained
+fragment or an omission back to its own file, revision, and line
+metadata.
 
 \subsection{Operational Trade-offs}\label{operational-trade-offs}
 
 Trimwise Lexical is the economical choice in the evaluated
 configuration: it requires no managed embedding model and has a 6.4 ms
-median warm trim time. Hybrid incurs semantic-backend loading and
-inference, increasing the median to 42.8 ms, but is stronger at the
-larger budget ceilings in this suite. Neither number is a service-level
-latency guarantee. A caller-provided embedding callback can change both
-quality and cost, while the managed backend adds model-cache, CUDA, and
-dependency considerations that a lexical deployment avoids.
+median warm trim time. Hybrid adds semantic-backend inference, increasing
+the median to 42.8 ms, and is stronger at the larger budget ceilings in
+this suite. These measurements depend on the embedding backend, cache,
+CUDA configuration, and hardware.
 
 Extractive fidelity is also a trade-off. Because Trimwise returns source
 wording rather than a rewritten summary, it cannot compress several
@@ -1888,30 +1891,26 @@ not fit all required fragments. Systems that permit an abstractive,
 non-citable summary should evaluate that different design directly
 rather than assuming an extractive selector is the right tool.
 
-\subsection{Appropriate Use Cases}\label{appropriate-use-cases}
+\subsection{Intended Operating Conditions}\label{appropriate-use-cases}
 
-The method is most appropriate when an application has already selected
-one document or excerpt, has an informative task query, and needs to
-reserve a strict portion of a larger prompt for exact source text.
-Examples include shrinking optional repository excerpts while keeping
-required prompt instructions outside the excerpt budget; selecting
-policy or runbook evidence before asking a model a focused question; and
-preparing reviewable source passages where the application retains its
-own document identifiers and converts character spans to citations. In
-these settings, a caller can use Trimwise as one prompt-assembly stage
-and inspect spans when a downstream response needs review.
+Trimwise is designed for applications that have already selected one
+document or excerpt, have an informative task query, and need to reserve
+a fixed portion of a larger prompt for exact source text. Typical
+settings include optional repository excerpts while required
+instructions remain outside the excerpt budget, policy or runbook
+evidence for a focused question, and reviewable source passages whose
+application-level identifiers and character spans can be converted to
+citations.
 
-\subsection{Inappropriate Use Cases}\label{inappropriate-use-cases}
+\subsection{Settings Requiring Additional Safeguards}\label{inappropriate-use-cases}
 
-Trimwise is not a corpus retriever, a fact checker, or a safety filter.
-It is a poor standalone choice when a task requires synthesis across
-every qualification in a long document, when a query is too vague to
-distinguish the needed rule from related rules, or when the source's
-meaning depends on omitted connectors, layout, or tables. It should not
-be used as the only mechanism for medical, legal, financial, employment,
-or other high-impact decisions. In such settings, an operator must
-inspect the authoritative source and verify that retained excerpts do
-not omit a material exception.
+The method is unsuitable as the sole mechanism when a task requires
+synthesis across every qualification in a long document, when a query is
+too vague to distinguish the needed rule from related rules, or when
+meaning depends on omitted connectors, layout, or tables. Medical,
+legal, financial, employment, and other high-impact decisions require
+inspection of the authoritative source and explicit review for omitted
+exceptions.
 
 \subsection{Threats to Validity}\label{threats-to-validity}
 
@@ -1928,43 +1927,34 @@ required operational rule.
 
 Baseline behavior depends on adapter choices, internal tokenizers,
 checkpoint identifiers, and hardware. The RECOMP comparator is an
-extractive adapter around a released checkpoint, not a full
-reimplementation claim. The run's hardware and package state are recorded
-only in a local, post-run manifest, and reported latency includes the observed
-cache and process state. Finally,
-one downstream API completion per context cannot separate selector
-quality from model sampling behavior. These threats are reasons to
-reproduce and extend the study, not grounds to erase unfavorable rows or
-convert a single benchmark into a broad product claim.
+extractive adapter around a released checkpoint. The released runtime
+manifest records the run's hardware and package state; reported latency
+also includes the observed cache and process state. Finally, one
+downstream API completion per context does not separate selector quality
+from model sampling behavior. Independent reproduction on additional
+task suites is needed to assess how these factors transfer.
 
 \section{Conclusion}\label{conclusion}
 
-This paper presented Trimwise, an extractive context-selection system
-for selecting source-backed text from one already-chosen document under
-a strict token, word, or character ceiling. Its central contract is
-operational: selected source text remains verbatim, appears in source
-order, and can be mapped back to original Python-string spans; omission
-markers are distinguished from source content.
+Trimwise is an extractive context-selection system for selecting
+source-backed text from one already-chosen document under a strict token,
+word, or character ceiling. Its output contract preserves verbatim source
+text and source order, returns original Python-string spans, and
+distinguishes omission markers from source content.
 
-On a 160-case position-controlled query-aware evaluation, Trimwise
+On the 160-case position-controlled query-aware evaluation, Trimwise
 Lexical and Hybrid achieved higher observed source-evidence case-pass
 rates than the evaluated LLMLingua, LongLLMLingua, and RECOMP-style
 comparators at 128, 256, 512, and 1,024 tokens. Hybrid's paired
-case-pass advantage over the closest comparator, RECOMP, remained
-positive under within-suite bootstrap intervals. The result is not
-universal: the study exposes poor instruction survival, difficulty with
-multiple required spans, and weak queryless performance relative to
-simple source-only baselines.
+case-pass differences against RECOMP remained positive under
+within-suite bootstrap intervals. The same evaluation exposes
+instruction-survival and multiple-span failures, while head--tail is
+stronger in the source-only condition.
 
-The narrow practical implication is that question-aware, source-faithful
-selection is worth evaluating when a prompt builder needs exact,
-reviewable evidence from a known source under a hard budget. It should
-not be presented as a replacement for retrieval, summarization, or
-source review. The most important next step is an independently
-reproducible run from a tagged artifact, followed by independent task suites,
-component ablations, repeated
-downstream generations, and human evaluation of whether the retained
-spans are actually sufficient.
+These findings support query-aware, source-faithful selection for prompt
+assembly from a known source under a hard budget. Priority next steps are
+evaluation on independent task suites, including component ablations and
+repeated downstream answer assessments.
 
 \section{Limitations}\label{limitations}
 
@@ -1988,10 +1978,11 @@ facts independently of the supplied context. No human answer assessment
 or component ablation was performed.
 
 The saved benchmark rows predate span metadata, although the 0.2.0
-implementation comparison shows that its span addition does not change
-selected text. A local, post-run manifest now records hardware, driver,
-packages, model revisions, configuration, and result hashes; it is not an
-immutable release or a portable service-level performance claim.
+implementation comparison shows that adding spans does not change
+selected text. The released runtime manifest records hardware, driver,
+packages, model revisions, configuration, and result hashes after the
+run. It supports traceability for this snapshot; it is not a portable
+service-level performance claim.
 
 \section{Ethical Considerations}\label{ethical-considerations}
 
@@ -2011,6 +2002,19 @@ data-governance review. The benchmark's public-source material retains
 its recorded license and attribution requirements. Controlled synthetic
 cases are labeled as such, and their use should not imply that the
 system has been validated on sensitive institutional material.
+
+\section{Artifact Availability}\label{artifact-availability}
+
+The immutable research artifact is the annotated
+\href{https://github.com/tenwritehq/trimwise/tree/paper-v1}{\texttt{paper-v1}
+tag in the Trimwise repository}. It contains the Trimwise implementation; the
+frozen source and 160-case position-controlled
+datasets; source, method, and runtime manifests; raw compression and
+downstream-QA JSONL rows; aggregate summaries and paired statistics; the
+HTML reports and figures; and the manuscript source. The reproduction commands
+are recorded in \texttt{benchmark/README.md}; the manuscript build command is
+recorded in \texttt{assets/paper/latex/README.md}. The release attachment
+\texttt{trimwise-paper-v1.pdf} is the rendered version of this manuscript.
 
 \section{Acknowledgments}\label{acknowledgments}
 
@@ -2205,11 +2209,11 @@ significance test.
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2222}}
-  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1667}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2222}}
-  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1667}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2222}}@{}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1300}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2200}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1600}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1800}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.3100}}@{}}
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedleft
 Budget
@@ -2227,16 +2231,16 @@ Hybrid-only / comparator-only passes
 \bottomrule\noalign{}
 \endlastfoot
 128 & LLMLingua & +46.9 & {[}38.1, 55.6{]} & 79 / 4 \\
-128 & LongLLMLingua & +50.0 & {[}41.9, 58.1{]} & 81 / 1 \\
+128 & LongLLM\allowbreak Lingua & +50.0 & {[}41.9, 58.1{]} & 81 / 1 \\
 128 & RECOMP-style & +17.5 & {[}8.8, 26.3{]} & 43 / 15 \\
 256 & LLMLingua & +55.6 & {[}46.3, 64.4{]} & 98 / 9 \\
-256 & LongLLMLingua & +58.8 & {[}50.0, 67.5{]} & 100 / 6 \\
+256 & LongLLM\allowbreak Lingua & +58.8 & {[}50.0, 67.5{]} & 100 / 6 \\
 256 & RECOMP-style & +25.6 & {[}16.3, 35.0{]} & 55 / 14 \\
 512 & LLMLingua & +51.2 & {[}41.9, 60.6{]} & 91 / 9 \\
-512 & LongLLMLingua & +58.8 & {[}50.0, 66.9{]} & 99 / 5 \\
+512 & LongLLM\allowbreak Lingua & +58.8 & {[}50.0, 66.9{]} & 99 / 5 \\
 512 & RECOMP-style & +18.8 & {[}8.8, 28.1{]} & 49 / 19 \\
 1,024 & LLMLingua & +30.0 & {[}20.0, 40.0{]} & 64 / 16 \\
-1,024 & LongLLMLingua & +46.2 & {[}36.3, 56.3{]} & 86 / 12 \\
+1,024 & LongLLM\allowbreak Lingua & +46.2 & {[}36.3, 56.3{]} & 86 / 12 \\
 1,024 & RECOMP-style & +13.8 & {[}5.6, 21.9{]} & 35 / 13 \\
 \end{longtable}
 }
@@ -2329,12 +2333,13 @@ documents.
   Primary citations in this manuscript were checked against primary or
   official sources.
 \item[$\boxtimes$]
-  The benchmark artifact and raw results are committed in the local
-  content-addressed Git snapshot. A tagged public archive remains pending.
+  The benchmark artifact and raw results are frozen in the public
+  \texttt{paper-v1} Git snapshot (Section~\ref{artifact-availability}).
 \item[$\boxtimes$]
   \url{benchmark/data/manifests/runtime_manifest.json} preserves a local
   hardware, driver, package, model-artifact, configuration, and result-hash
-  snapshot. It is post-run evidence, not an immutable public release.
+  snapshot. The manifest is released with the \texttt{paper-v1} snapshot;
+  it remains post-run evidence rather than a portable performance claim.
 \item[$\boxtimes$]
   The local benchmark environment resolves the repository's Trimwise
   0.2.0 package.
