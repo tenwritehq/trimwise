@@ -1,0 +1,41 @@
+dataset: data/position_controlled_160.jsonl
+output: results/position_controlled_160_results.jsonl
+seed: 242
+cache_dir: cache/huggingface
+require_cuda: true
+use_gpu: true
+thermal:
+  enabled: true
+  pause_temperature_c: 70
+  resume_temperature_c: 60
+  hard_temperature_c: 75
+  cooldown_timeout_seconds: 1800
+budgets: [128, 256, 512, 1024]
+methods:
+  - {name: naive_first_n}
+  - {name: head_tail}
+  - {name: trimwise_structural}
+  - {name: llmlingua_queryless, model_name: openai-community/gpt2, device_map: cuda}
+  - {name: llmlingua2, model_name: microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank, device_map: cuda}
+  - {name: trimwise_lexical}
+  - {name: trimwise_hybrid}
+  - {name: llmlingua, model_name: openai-community/gpt2, device_map: cuda}
+  - {name: longllmlingua, model_name: openai-community/gpt2, device_map: cuda}
+  - {name: recomp_extractive, model_name: fangyuan/nq_extractive_compressor, device: cuda}
+openai_qa:
+  api_key_env: OPENAI_API_KEY
+  max_output_tokens: 128
+  reasoning_effort: none
+  verbosity: low
+  timeout_seconds: 120
+  max_concurrency: 16
+  models:
+    - id: gpt_5_4_nano
+      model: gpt-5.4-nano-2026-03-17
+      output: results/position_controlled_160_qa_gpt_5_4_nano.jsonl
+    - id: gpt_5_4_mini
+      model: gpt-5.4-mini-2026-03-17
+      output: results/position_controlled_160_qa_gpt_5_4_mini.jsonl
+    - id: gpt_5_6_luna
+      model: gpt-5.6-luna
+      output: results/position_controlled_160_qa_gpt_5_6_luna.jsonl

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trimwise benchmark — Context selection with a question</title>
+<style>
+:root { color-scheme: light; --ink:#172033; --muted:#526074; --rule:#d8dee8; --paper:#fff; --surface:#f7f9fc; --accent:#155eef; }
+* { box-sizing:border-box; } body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+a { color:var(--accent); } .shell { max-width:1680px; margin:auto; padding:0 32px; } header { border-bottom:1px solid var(--rule); padding:22px 0; } .brand { font-weight:750; letter-spacing:-.02em; } main { padding:64px 0 76px; } h1,h2 { letter-spacing:-.035em; line-height:1.08; } h1 { font-size:clamp(2.3rem,5vw,4.6rem); max-width:15ch; margin:0; } h2 { font-size:1.7rem; margin:0 0 14px; } .lede { color:var(--muted); font-size:1.18rem; max-width:65ch; } .notice { border-left:4px solid var(--accent); color:var(--muted); margin:32px 0; max-width:76ch; padding:10px 16px; }
+.facts { display:grid; gap:1px; grid-template-columns:repeat(4,minmax(0,1fr)); background:var(--rule); margin:42px 0 0; } .facts div { background:var(--surface); min-width:0; padding:18px; } dt { color:var(--muted); font-size:.78rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; } dd { margin:7px 0 0; overflow-wrap:anywhere; } section { border-top:1px solid var(--rule); padding:50px 0; } .figure-grid { display:grid; gap:28px; grid-template-columns:minmax(0,1fr); } .figure-card { background:var(--surface); border:1px solid var(--rule); margin:0; padding:20px; } figure { margin:0; } img { display:block; height:auto; width:100%; } figcaption { color:var(--muted); font-size:.9rem; margin-top:12px; } .table-wrap { overflow-x:auto; } table { border-collapse:collapse; min-width:860px; width:100%; } th,td { border-bottom:1px solid var(--rule); padding:12px; text-align:left; vertical-align:top; } th { color:var(--muted); font-size:.76rem; letter-spacing:.05em; text-transform:uppercase; } footer { border-top:1px solid var(--rule); color:var(--muted); font-size:.9rem; padding:26px 0; }
+@media (max-width:760px) { .shell { padding:0 18px; } main { padding-top:42px; } .facts { grid-template-columns:minmax(0,1fr); } }
+</style>
+</head>
+<body>
+<header><div class="shell"><a class="brand" href="../index.html">Trimwise benchmark</a></div></header>
+<main class="shell">
+<p>BALANCED SOURCE-LOCATION BENCHMARK</p>
+<h1>Context selection with a question</h1>
+<p class="lede">Every method receives the same source and question. These results show how well each one keeps the source material needed for the task.</p>
+<p class="notice">These results describe this dataset, task format, and hardware. A different application may produce different results.</p>
+<dl class="facts">
+<div><dt>Information available</dt><dd>Source and question</dd></div>
+<div><dt>Maximum kept text</dt><dd>128, 256, 512, 1024 tokens</dd></div>
+<div><dt>Methods shown</dt><dd>Trimwise Lexical, Trimwise Hybrid, LLMLingua, LongLLMLingua, RECOMP</dd></div>
+<div><dt>Where needed text appears</dt><dd>Beginning · middle · end · several places</dd></div>
+</dl>
+<section><h2>Results</h2><div class="figure-grid"><article class="figure-card"><figure>
+<img src="utility_vs_budget.png" alt="Primary result: task success at each context size" width="1600" height="960" loading="lazy">
+<figcaption><strong>Primary result: task success at each context size</strong> — Higher is better. Question answering, instructions, procedures, and structured-source tasks have equal weight.</figcaption>
+</figure></article>
+<article class="figure-card"><figure>
+<img src="position_robustness.png" alt="Does source location matter?" width="1600" height="960" loading="lazy">
+<figcaption><strong>Does source location matter?</strong> — The needed source text appears at the beginning, middle, end, or several places—40 cases each. This reveals methods that work only when it appears early.</figcaption>
+</figure></article>
+<article class="figure-card"><figure>
+<img src="answer_pass.png" alt="Answer quality after trimming" width="1600" height="960" loading="lazy">
+<figcaption><strong>Answer quality after trimming</strong> — Each panel uses a different answer model. The dashed reference uses the untrimmed source and has no trimming-time point.</figcaption>
+</figure></article>
+<article class="figure-card"><figure>
+<img src="utility_vs_latency.png" alt="Task success and trimming time" width="1600" height="960" loading="lazy">
+<figcaption><strong>Task success and trimming time</strong> — Higher and farther left is preferable. Timing comes from the recorded hardware and run conditions.</figcaption>
+</figure></article>
+<article class="figure-card"><figure>
+<img src="task_breakdown.png" alt="Results by task type" width="1600" height="960" loading="lazy">
+<figcaption><strong>Results by task type</strong> — Question answering, following instructions, ordered procedures, and structured source text stay separate rather than being hidden inside one score.</figcaption>
+</figure></article></div></section>
+<section><h2>Completion and resource use</h2><p class="lede">A useful method must finish and stay within the requested limit.</p><div class="table-wrap"><table><thead><tr>
+<th>Method</th><th>Completed</th><th>Over the limit</th><th>95th-percentile time</th><th>Typical GPU memory</th><th>Highest GPU temperature</th><th>Cooling pause</th>
+</tr></thead><tbody><tr><td>Trimwise Lexical</td><td>100.0%</td><td>0.0%</td><td>7.9 ms</td><td>395 MB</td><td>58 °C</td><td>0.0 s</td></tr>
+<tr><td>Trimwise Hybrid</td><td>100.0%</td><td>0.0%</td><td>45.2 ms</td><td>395 MB</td><td>48 °C</td><td>0.0 s</td></tr>
+<tr><td>LLMLingua</td><td>100.0%</td><td>29.9%</td><td>189.7 ms</td><td>1710 MB</td><td>67 °C</td><td>0.0 s</td></tr>
+<tr><td>LongLLMLingua</td><td>100.0%</td><td>57.8%</td><td>403.0 ms</td><td>1380 MB</td><td>72 °C</td><td>245.2 s</td></tr>
+<tr><td>RECOMP</td><td>100.0%</td><td>0.0%</td><td>153.0 ms</td><td>522 MB</td><td>71 °C</td><td>74.1 s</td></tr></tbody></table></div></section>
+<section><h2>How scores are calculated</h2><p>See <a href="plot_guide.md">metric definitions</a>. The underlying summary data is available in the supplied CSV file.</p></section>
+</main>
+<footer><div class="shell">Benchmark summary. Results are separated by whether each method receives the question.</div></footer>
+</body></html>

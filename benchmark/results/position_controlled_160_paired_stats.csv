@@ -1,0 +1,13 @@
+budget,reference,comparator,cases,reference_case_pass_rate,comparator_case_pass_rate,difference_percentage_points,ci_95_lower_percentage_points,ci_95_upper_percentage_points,reference_only_passes,comparator_only_passes
+128,trimwise_hybrid,llmlingua,160,0.50625,0.0375,46.875,38.125,55.625,79,4
+128,trimwise_hybrid,longllmlingua,160,0.50625,0.00625,50.0,41.875,58.125,81,1
+128,trimwise_hybrid,recomp_extractive,160,0.50625,0.33125,17.5,8.75,26.25,43,15
+256,trimwise_hybrid,llmlingua,160,0.6375,0.08125,55.625,46.25,64.375,98,9
+256,trimwise_hybrid,longllmlingua,160,0.6375,0.05,58.75,50.0,67.5,100,6
+256,trimwise_hybrid,recomp_extractive,160,0.6375,0.38125,25.625,16.25,35.0,55,14
+512,trimwise_hybrid,llmlingua,160,0.66875,0.15625,51.25,41.875,60.625,91,9
+512,trimwise_hybrid,longllmlingua,160,0.66875,0.08125,58.75,50.0,66.875,99,5
+512,trimwise_hybrid,recomp_extractive,160,0.66875,0.48125,18.75,8.75,28.125,49,19
+1024,trimwise_hybrid,llmlingua,160,0.69375,0.39375,30.0,20.0,40.0,64,16
+1024,trimwise_hybrid,longllmlingua,160,0.69375,0.23125,46.25,36.25,56.25,86,12
+1024,trimwise_hybrid,recomp_extractive,160,0.69375,0.55625,13.75,5.625,21.875,35,13

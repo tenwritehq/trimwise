@@ -1,0 +1,38 @@
+{
+  "case_count": 250,
+  "document_count": 150,
+  "frozen_before_method_execution": true,
+  "seed": 20260718,
+  "sha256": "7b752ea79f19369fa151aa27f8bcfb33abdc48d9a9da609b655640e931c7d428",
+  "tracks": {
+    "adversarial": 18,
+    "evidence_qa": 54,
+    "instruction": 30,
+    "procedure": 24,
+    "structured": 24,
+    "real_source": 100
+  },
+  "source_type_counts": {
+    "synthetic_incident": 36,
+    "synthetic_policy": 30,
+    "synthetic_procedure": 24,
+    "synthetic_structured": 24,
+    "synthetic_adversarial": 18,
+    "real_technical_source": 18,
+    "real_code": 20,
+    "real_api_docs": 30,
+    "real_web_docs": 10,
+    "real_research_docs": 10,
+    "real_data_docs": 10,
+    "real_security_policy": 10,
+    "real_specification": 10
+  },
+  "qa_verification": {
+    "effective_verified_cases": 250,
+    "unverified_cases": 0,
+    "methods": {
+      "legacy_verified": 150,
+      "assistant_authored_source_span": 100
+    }
+  }
+}

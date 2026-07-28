@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "trimwise-context-benchmark"
+version = "0.1.0"
+description = "Position-controlled context-selection benchmark for Trimwise and baseline compressors"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+  "accelerate>=0.34,<2",
+  "en-core-web-sm==3.8.0",
+  "llmlingua==0.2.2",
+  "matplotlib>=3.9,<4",
+  "numpy>=1.26,<3",
+  "openai>=2.47,<3",
+  "onnxruntime-gpu==1.23.2",
+  "pandas>=2.2,<3",
+  "PyYAML>=6,<7",
+  "pytest>=8,<10",
+  "ruff>=0.9,<1",
+  "scikit-learn>=1.5,<2",
+  "selective-context==0.1.4",
+  "sentencepiece>=0.2,<1",
+  "spacy>=3.8,<4",
+  "tiktoken>=0.9,<1",
+  "torch==2.10.0",
+  "transformers==4.43.1",
+  "trimwise[semantic,semantic-gpu]==0.2.0",
+  "typer>=0.12,<1",
+]
+
+[tool.uv]
+override-dependencies = ["spacy>=3.8,<4"]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+torch = { index = "pytorch-cu128" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["benchmark"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

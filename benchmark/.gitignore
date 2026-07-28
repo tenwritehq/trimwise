@@ -1,0 +1,11 @@
+cache/
+results/*.jsonl
+results/*.csv
+results/*.lock
+reports/*.png
+vendor/*.whl
+.hallmark/
+*.tar.gz
+
+!results/position_controlled_160_summary.csv
+!results/position_controlled_160_paired_stats.csv
