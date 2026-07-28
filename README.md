@@ -138,8 +138,8 @@ result = Trimmer().trim(
 
 print(result.text)
 print(result.output_count)  # Always <= 24
-print(result.strategy)      # Strategy.LEXICAL: auto resolved from the query
-print(result.spans)         # Original-input Python-string offsets
+print(result.strategy)  # Strategy.LEXICAL: auto resolved from the query
+print(result.spans)  # Original-input Python-string offsets
 ```
 
 `auto` uses structural coverage when no query is supplied and fast lexical BM25 when a query is

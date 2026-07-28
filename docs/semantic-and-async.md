@@ -341,9 +341,7 @@ async def main() -> None:
         "First source with an opening fact and a later decision.",
         "Second source with a warning and a final recommendation.",
     ]
-    results = await asyncio.gather(
-        *(trimmer.atrim(source, 8, unit="words") for source in sources)
-    )
+    results = await asyncio.gather(*(trimmer.atrim(source, 8, unit="words") for source in sources))
     for result in results:
         print(result.text)
 
