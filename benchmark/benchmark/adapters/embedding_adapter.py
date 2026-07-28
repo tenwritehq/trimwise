@@ -79,6 +79,19 @@ class EmbeddingMMRAdapter(TimedAdapter):
         norms = np.linalg.norm(matrix, axis=1, keepdims=True)
         return matrix / np.where(norms == 0, 1, norms)
 
+    def _compose_selected(self, selected: dict[int, str]) -> str:
+        """Compose selected windows in the configured output order.
+
+        Args:
+            selected: Candidate-window text keyed by source index.
+
+        Returns:
+            Source-ordered or rank-ordered windows separated by omission markers.
+        """
+        marker = "\n[…omitted…]\n"
+        output_order = sorted(selected) if self.source_order else list(selected)
+        return marker.join(selected[index] for index in output_order)
+
     def _compress(self, context: str, query: str, budget: int, seed: int) -> CompressionResult:
         chunks = _chunks(context, self.chunk_size, self.overlap)
         if not chunks:
@@ -91,9 +104,8 @@ class EmbeddingMMRAdapter(TimedAdapter):
         passages = vectors[1:]
         relevance = passages @ q
         remaining = set(range(len(chunks)))
-        selected: list[int] = []
+        selected: dict[int, str] = {}
         max_similarity = np.zeros(len(chunks), dtype=np.float32)
-        marker = "\n[…omitted…]\n"
         while remaining:
             chosen = max(
                 remaining,
@@ -103,21 +115,59 @@ class EmbeddingMMRAdapter(TimedAdapter):
                     -i,
                 ),
             )
-            candidate_order = [*selected, chosen]
-            output_order = sorted(candidate_order) if self.source_order else candidate_order
-            candidate = marker.join(chunks[i].text for i in output_order)
+            candidate = self._compose_selected({**selected, chosen: chunks[chosen].text})
             if count_tokens(candidate) > budget:
+                remaining_tokens = budget - count_tokens(self._compose_selected(selected))
+                if selected:
+                    remaining_tokens -= count_tokens("\n[…omitted…]\n")
+                prefix = token_prefix(chunks[chosen].text, remaining_tokens)
+                if prefix:
+                    selected[chosen] = prefix
                 break
-            selected.append(chosen)
+            selected[chosen] = chunks[chosen].text
             remaining.remove(chosen)
             if remaining:
                 max_similarity = np.maximum(max_similarity, passages @ passages[chosen])
-        output_order = sorted(selected) if self.source_order else selected
-        output = marker.join(chunks[i].text for i in output_order)
+        output = self._compose_selected(selected)
         if not output and chunks:
             output = token_prefix(chunks[int(np.argmax(relevance))].text, budget)
         return CompressionResult(
             self.method_id,
             output,
-            metadata={"selected": selected, "model_name": self.model_name},
+            metadata={"selected": list(selected), "model_name": self.model_name},
         )
+
+
+class EmbeddingTopKAdapter(EmbeddingMMRAdapter):
+    """Select fixed embedding-ranked chunks without a diversity penalty."""
+
+    def __init__(
+        self,
+        model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        chunk_size: int = 128,
+        overlap: int = 32,
+        source_order: bool = True,
+        cache_dir: str | None = None,
+        use_gpu: bool = False,
+    ) -> None:
+        """Configure fixed-window embedding retrieval without MMR.
+
+        Args:
+            model_name: FastEmbed model identifier.
+            chunk_size: Token count in each candidate window.
+            overlap: Shared token count between consecutive windows.
+            source_order: Whether to restore selected windows to input order.
+            cache_dir: Optional model-cache location.
+            use_gpu: Whether FastEmbed may use CUDA.
+        """
+        super().__init__(
+            model_name=model_name,
+            chunk_size=chunk_size,
+            overlap=overlap,
+            mmr_lambda=1.0,
+            source_order=source_order,
+            cache_dir=cache_dir,
+            use_gpu=use_gpu,
+        )
+        suffix = "source_order" if source_order else "rank_order"
+        self.method_id = f"embedding_topk_{suffix}"

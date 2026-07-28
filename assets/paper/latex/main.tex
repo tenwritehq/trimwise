@@ -132,15 +132,20 @@ Trimwise segments the original string into source-backed candidates,
 ranks them with structural, lexical, semantic, or hybrid signals,
 selects a diverse subset under a strict configurable budget, restores
 source order, and returns original-input character spans for retained
-text. We evaluate query-aware selection on a 160-case,
-position-controlled suite with required evidence at the beginning,
+text. We evaluate query-aware selection on an author-annotated,
+position-controlled 160-case suite with required evidence at the beginning,
 middle, end, or multiple locations. A post-hoc robustness analysis over
 the frozen outputs uses normalized contiguous required-span containment:
 at 128/256/512/1,024-token ceilings, Lexical obtains
 52.5/60.0/61.9/66.2\% and Hybrid obtains 49.4/62.5/66.9/69.4\%, compared
 with 27.5/30.6/35.0/35.0\% for the RECOMP NQ extractive sentence adapter.
 The same ordering holds under local ordered-retention sensitivity checks.
-The evaluation identifies difficult multiple-evidence and
+A separate exploratory fixed-window retrieval follow-up favors the complete
+Trimwise configurations in the all-case aggregate, while exposing a
+middle-evidence stratum where ordinary retrieval is stronger. The evaluation
+also includes a component study: structural segmentation and the adaptive
+evidence cutoff help at the 128-token ceiling, whereas MMR has no consistent
+observed effect on this suite. It identifies difficult multiple-evidence and
 instruction-survival settings. Trimwise is intended as a
 source-faithful, query-aware prompt-assembly primitive; the downstream
 answer experiment is reported separately from the source-evidence
@@ -215,9 +220,10 @@ The work makes four contributions:
   in a source, making positional failure modes visible rather than
   averaging them away.
 \item
-  It evaluates the resulting system as a query-aware context selector
-  against comparable methods, while reporting task success, output size,
-  time, resource use, failures, and limitations separately.
+  It evaluates the resulting system against three documented query-aware
+  compression adapters and, in a separately reported exploratory follow-up,
+  three fixed-window retrieval baselines, while reporting source-evidence
+  survival, budget use, latency, failures, and limitations separately.
 \end{enumerate}
 
 The remainder of the paper defines the problem, describes the method,
@@ -488,9 +494,15 @@ Perception Compressor combines a question-guided retriever with
 token-level compression \citep{tang-etal-2025-perception-compressor}.
 Adaptive QuerySelect studies query-aware variable-rate prompt selection
 through a rate-distortion framing \citep{nagle-etal-2024-fundamental-limits}.
-These methods were not executed in the frozen benchmark and are not
-implicit baselines for Trimwise; they motivate a broader future comparison
-against direct learned and retrieval-style selectors.
+Li et al. show that answer-level success and citation grounding can diverge
+under compression \citep{li-etal-2026-efficiency}; accordingly, the primary
+outcome here measures survival of annotated source spans rather than answer
+match alone. IterCOMP iteratively gathers interdependent evidence for multi-hop
+question answering \citep{yun-kim-2026-itercomp}, a setting beyond this
+paper's one-query, one-source selection contract. These learned and iterative
+methods were not executed in the original adapter comparison. The separate
+fixed-window follow-up addresses simple retrieval policies, but it does not
+reproduce the full learned or iterative systems.
 
 These systems are meaningful comparators, but their output units and
 contracts differ. Token pruning can produce an efficient prompt without
@@ -1220,11 +1232,11 @@ separately, since a cooldown policy protects the hardware but is not
 algorithmic work. Comparisons are scoped to the recorded hardware,
 software versions, model cache state, and method-specific dependencies.
 
-The present protocol compares complete methods, not independent switches
-for segmentation, relevance, diversity, and reconstruction. It therefore
-cannot make a causal component-ablation claim. Such a claim requires a
-separate frozen ablation study in which each component is disabled or
-replaced while all other choices remain fixed.
+\textbf{RQ6 --- Component contribution (exploratory).} Within Hybrid's
+fixed encoder, fusion, composition, and budget implementation, what changes
+when diversity-aware selection, the adaptive evidence cutoff, or
+Markdown-aware source segmentation is removed? This follow-up is reported as
+a configuration ablation on this suite, not as a universal causal claim.
 
 \subsection{Tasks and Datasets}\label{tasks-and-datasets}
 
@@ -1256,7 +1268,7 @@ or document summarization.
 Evidence position is an explicit experimental factor. The set contains
 exactly 40 cases with all required evidence near the beginning of the
 context, 40 in the middle, 40 at the end, and 40 with required evidence
-in multiple locations. Of these rows, 135 preserve their natural source
+in multiple locations. Of these cases, 135 preserve their natural source
 placement; 25 are controlled end-position variants. For each variant,
 one required span that occurred exactly once in an unused source case was
 moved unchanged to the end of the same context; the original source case
@@ -1283,12 +1295,12 @@ evidence. In particular, relocation changes local discourse context
 around a required span and should be interpreted as a controlled
 diagnostic, not as a claim that all long documents end with an isolated
 answer. We consequently report results by position as well as aggregates
-over the position-balanced set. We also re-aggregate the saved rows after
+over the position-balanced set. We also recalculate the frozen outcomes after
 excluding all 25 relocations. This 135-case natural-only sensitivity
 analysis contains 40 beginning, 40 middle, 15 end, and 40 multiple-evidence
 cases; it is intentionally not position-balanced. No compressor or evaluator
 is run again for this analysis. A second saved-output sensitivity excludes all
-10 	exttt{real-trimwise-*} cases drawn from four Trimwise documents. It tests
+10 \texttt{real-trimwise-*} cases drawn from four Trimwise documents. It tests
 whether the observed comparison is dependent on the author's own source domain;
 the 150 remaining cases are not rebalanced.
 
@@ -1300,8 +1312,8 @@ equally because the set is balanced, while the separately reported macro
 rate weights task tracks equally. Track-level results remain necessary
 to expose task-specific failure modes. The corpus has no
 development/test split because it is a single fixed comparative
-evaluation suite. Compressor configurations and the original v1.1
-evaluation were fixed before the final compression run; the v1.2 metric
+evaluation suite. Compressor configurations and the original legacy
+evaluation were fixed before the final compression run; the strict-metric
 protocol was separately frozen before rescoring the saved outputs. No
 method parameters were tuned on a held-out subset of these 160 cases.
 
@@ -1325,7 +1337,7 @@ one access condition is better than the other.
 \subsection{Baselines}\label{baselines}
 
 The main comparison is deliberately limited to methods that accept a
-case query and were run through the same compression runner on the same
+case query and were evaluated through the same compression implementation on the same
 source strings, budgets, and post-hoc token counter. It contains
 Trimwise Lexical, Trimwise Hybrid, an LLMLingua GPT-2 token-pruning
 adapter, a LongLLMLingua GPT-2 single-context adapter, and a RECOMP NQ
@@ -1349,7 +1361,58 @@ the released model identifier, not a claim that every preprocessing and
 decoding detail of the published RECOMP system has been reproduced. This
 distinction is material when interpreting either quality or latency.
 
-For the source-only diagnostic, the runner separately includes
+\subsection{Direct-Retrieval Follow-Up}\label{direct-retrieval-follow-up}
+
+We added a separate exploratory query-aware follow-up over the same frozen
+160 cases and four budgets.
+It adds three fixed-window selectors: BM25, embedding top-\emph{k}, and
+embedding MMR. Each splits the source into 128-token windows with 32-token
+overlap, ranks those windows against the case query, and reconstructs selected
+windows in source order. The dense methods use
+\texttt{sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}, the
+published default encoder for Trimwise Hybrid; embedding MMR fixes its relevance
+weight at 0.7. This is a new compression experiment, not a rescore of the
+original outcomes. It adds 1,920 completed case--method--budget outcomes
+(160 cases $\times$ four budgets $\times$ three methods), makes no downstream
+QA calls, and leaves the original 6,400 outcomes unchanged. The full protocol,
+hashes, and outputs are included in the reproducibility artifact described in
+Section~\ref{reproducibility}.
+
+These are direct retrieval comparisons, not component ablations. They test
+whether complete Trimwise configurations beat simple fixed-window retrieval
+policies under the specified settings; they do not isolate the causal effect of
+segmentation, fusion, MMR, or source-order reconstruction.
+
+\subsection{Component Ablation Follow-Up}\label{component-ablation-follow-up}
+
+We also ran a separate exploratory component study over the same 160 cases,
+questions, four budgets, strict scorer, and thermal-gated runtime. Each variant
+keeps Hybrid's managed encoder, lexical--semantic fusion, source-order
+composition, token counter, omission behavior, and remaining selection logic
+fixed while changing one mechanism:
+
+\begin{enumerate}
+\tightlist
+\item
+  \textbf{Relevance-only selection} sets the MMR relevance weight to one,
+  removing the diversity penalty.
+\item
+  \textbf{No evidence cutoff} admits every non-heading candidate instead of
+  applying Hybrid's adaptive evidence-pool boundary.
+\item
+  \textbf{Fixed windows} replaces Markdown-aware candidates with contiguous,
+  non-overlapping, source-backed 128-token windows; ranking, fusion, MMR, and
+  composition remain unchanged.
+\end{enumerate}
+
+The experiment adds 1,920 successful compression outcomes (160 cases times
+four budgets times three variants) and makes no downstream QA or external API
+calls. Its protocol fixes the variants before their aggregate is calculated,
+but it is an exploratory follow-up added after the principal adapter study. It
+therefore measures component behavior on this frozen suite rather than proving
+that the same effects will transfer to other documents, encoders, or budgets.
+
+For the source-only diagnostic, the evaluation separately includes
 first-\emph{N} prefix truncation, head--tail truncation, Trimwise
 Structural, LLMLingua without a query, and LLMLingua-2. These methods
 receive an empty compression query. They are reported on their own
@@ -1360,14 +1423,14 @@ comparison impractical; it must not appear as an unrun baseline in
 tables or narrative.
 
 Every method receives a requested target of 128, 256, 512, or 1,024
-tokens. The runner treats the method's own output as its output, then
+tokens. The evaluation treats the method's own output as its output, then
 scores it with the common \texttt{o200k\_base} counter used by Trimwise.
 A target passed to a baseline is therefore not assumed to be a guarantee
 under that counter; measured budget violations are reported. This avoids
 silently treating different internal tokenizers as interchangeable,
 while retaining the native configuration that each method requires.
 
-The saved compression rows were generated before the 0.2.0
+The original compression outcomes were generated before the 0.2.0
 provenance-span release. A direct implementation comparison confirms
 that the 0.2.0 change adds span propagation and public result metadata
 without changing segmentation, ranking, or emitted-text selection. The
@@ -1412,9 +1475,9 @@ maximum of 16 concurrent calls.
 
 For every case and evaluator, the protocol includes one uncompressed
 full-context reference and one answer for every successful compressor
-output at every budget. This yields 6,560 saved rows per evaluator: 160
-full-context rows plus \(160 \times 10 \times 4\) compressed-context
-rows. The answer analysis is restricted to the adversarial, evidence-QA,
+output at every budget. This yields 6,560 answer outcomes per evaluator: 160
+full-context outcomes plus \(160 \times 10 \times 4\) compressed-context
+outcomes. The answer analysis is restricted to the adversarial, evidence-QA,
 and real-source tracks, which have answer ground truth; instructions,
 procedures, and structured records are evaluated through their
 source-level task conditions instead. The three API models are
@@ -1438,7 +1501,7 @@ hardware-performance claims.
 
 \subsection{Metrics}\label{metrics}
 
-The primary v1.2 outcome is \textbf{normalized contiguous required-span
+The primary outcome is \textbf{normalized contiguous required-span
 containment}. For each required evidence item, the scorer first applies
 case-folding and whitespace collapse. The item passes only when that
 complete normalized string occurs contiguously in the output. A case
@@ -1449,14 +1512,14 @@ the annotated source span; it does not establish byte-for-byte identity,
 semantic sufficiency, or downstream answer quality.
 
 This metric was specified after review identified a weakness in the
-original v1.1 scorer, which accepted 80\% bag-of-token recall anywhere
-in the output. The v1.2 protocol, tokenizer, edge-case behavior, and
+original scorer, which accepted 80\% bag-of-token recall anywhere
+in the output. The strict protocol, tokenizer, edge-case behavior, and
 input hashes were committed before the new aggregate was inspected. The
 same frozen compressor outputs are rescored; no compressor or answer
 model is rerun. We also report local ordered 80\% and 90\% sensitivities:
 the scorer finds the best output-token window whose length equals the
 reference length and tests ordered-token LCS recall within that window.
-The historical v1.1 score remains a diagnostic only and is never used as
+The historical bag-of-token score remains a diagnostic only and is never used as
 the primary result below.
 
 We report token-overlap recall, precision, and F1 between the
@@ -1471,7 +1534,7 @@ not currently calculate a general ``generated-content'\,' rate or
 validate source offsets for non-Trimwise methods; it must not be
 interpreted as measuring those properties.
 
-For generated answers, the runner removes any preceding chat prompt and
+For generated answers, the evaluation removes any preceding chat prompt and
 scores only the assistant continuation. \textbf{Answer match} is true
 when every normalized token from the gold answer or an accepted alias
 occurs in that continuation, with repeated-token counts respected.
@@ -1496,28 +1559,31 @@ and any application-specific prompt assembly.
 \subsection{Statistical Analysis}\label{statistical-analysis}
 
 The unit of comparison is a case at a fixed method, access condition,
-and budget. The v1.2 analysis calculates paired differences for each
+and budget. The strict analysis calculates paired differences for each
 Trimwise configuration against each evaluated query-aware adapter on all
-160 cases. It reports normalized contiguous case pass, local ordered 80\%
-case pass, and local ordered 90\% case pass. For every metric, budget, and
-pair, the released script computes a 95\% percentile-bootstrap interval
-from 10,000 resamples of paired case differences using NumPy's
-\texttt{default\_rng(20260728)}. The main text gives the primary-metric
-Hybrid--RECOMP intervals; the complete 72-row table is released with the
-v1.2 artifact.
+160 cases. The direct-retrieval follow-up applies the same procedure to
+BM25, embedding top-\emph{k}, and embedding-MMR; the component study applies
+it to full Hybrid against its three variants. It reports normalized contiguous
+case pass, local ordered 80\% case pass, and local ordered 90\% case pass.
+For every metric, budget, and pair, the released script computes a
+95\% percentile-bootstrap interval from 10,000 resamples of paired case
+differences using NumPy's \texttt{default\_rng(20260728)}. The main text gives
+the primary-metric Hybrid--RECOMP and Hybrid--BM25 intervals; each comparison
+has a released 72-row paired-statistics table.
 
 These intervals quantify variation from resampling this fixed evaluation
 suite. They do not estimate variance across independent documents,
 compressor seeds, hardware, model versions, or repeated API generations.
-The v1.2 metrics and bootstrap analysis were specified after review of the
+The strict metrics and bootstrap analysis were specified after review of the
 historical scorer but frozen before inspecting their aggregates. They are
 therefore transparent post-hoc robustness analyses, not preregistered
 confirmatory tests. We report no p-values, significance stars, or
-multiple-comparison-adjusted claims. Historical v1.1 intervals remain in
+multiple-comparison-adjusted claims. Historical bag-of-token intervals remain in
 the appendix solely to reproduce the earlier artifact.
 
-All 6,400 compression rows completed successfully, so no row required a
-missing-data rule. In a future rerun, an unsuccessful compressor call
+All 6,400 original compression outcomes, 1,920 direct-retrieval follow-up
+outcomes, and 1,920 component-study outcomes completed successfully, so no
+outcome required a missing-data rule. In a future rerun, an unsuccessful compressor call
 should remain a failed case for descriptive success and feasibility
 reporting; it should not be silently discarded. The saved downstream QA
 calls also completed successfully, but their one-sample-per-context
@@ -1530,8 +1596,8 @@ budget without confidence intervals or cross-model aggregation.
 The reproducibility package consists of the frozen dataset, source and
 method manifests, controlled set-construction script, YAML
 configuration, raw compression JSONL, one QA JSONL per evaluator,
-aggregation script, plot generator, and the paired-bootstrap script used
-for this paper. The position-controlled builder can validate that the
+aggregation script, plot generator, paired-bootstrap script, and the direct-retrieval
+and component-study protocols used for this paper. The position-controlled builder can validate that the
 derived JSONL and review manifest exactly match the frozen 250-case
 source corpus. The compressor runner resumes from stable keys
 \texttt{(case\_id,\ method\_id,\ budget,\ query\_aware)}; the QA runner
@@ -1562,14 +1628,14 @@ tagged artifact before being treated as portable performance estimates.
 \section{Results}\label{results}
 
 All primary results in this section come from the frozen 160-case set and
-saved outputs described in Section 5. They use the strict v1.2 scorer.
+saved outputs described in Section 5. They use the strict source-span scorer.
 The historical source-only condition is retained separately in Appendix D.
 The reported ordering concerns this suite, configuration, and runtime.
 
 \subsection{Query-Aware Source-Evidence
 Results}\label{query-aware-source-evidence-results}
 
-Table 1 reports the v1.2 primary metric over all 160 cases. Both
+Table 1 reports the strict primary metric over all 160 cases. Both
 Trimwise strategies exceed the three evaluated query-aware adapters at
 every listed budget. At 128 tokens, Lexical has the highest observed
 rate (52.5\%); from 256 to 1,024 tokens, Hybrid has the highest observed
@@ -1577,7 +1643,7 @@ rate (62.5\%, 66.9\%, and 69.4\%). The RECOMP NQ extractive sentence
 adapter is the closest evaluated comparator, reaching 35.0\% at 512 and
 1,024 tokens. The two local ordered-retention sensitivities preserve
 this ordering at every budget; their complete values and continuous
-recall are in the frozen v1.2 summary.
+recall are in the released strict-score summary.
 
 {\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}p{0.36\linewidth}rrrr@{}}
@@ -1606,7 +1672,7 @@ for Hybrid, 126.2 ms for the RECOMP adapter, 168.0 ms for the LLMLingua
 adapter, and 340.7 ms for the LongLLMLingua adapter. Warm timing excludes
 model loading and thermal waiting; it remains machine-specific.
 
-The strict v1.2 track results identify important boundaries of this
+The strict track results identify important boundaries of this
 aggregate. At 256 tokens, Hybrid passes 80.4\% of evidence-QA cases,
 73.3\% of real-source cases, 70.0\% of procedure cases, and 100\% of
 structured cases. It passes 35.3\% of adversarial cases and 0\% of
@@ -1618,13 +1684,121 @@ budget, the RECOMP adapter has 35.3\% adversarial, 4.3\% evidence-QA,
 Those differences are task-dependent, not evidence of a single universal
 selection mechanism.
 
+\subsection{Direct Retrieval Follow-Up
+Results}\label{direct-retrieval-follow-up-results}
+
+Table 2 reports the separate fixed-window retrieval follow-up using the same
+strict case-pass definition. Both Trimwise configurations exceed all three
+direct baselines at every listed budget. The closest direct comparator is BM25:
+Hybrid records 62.5\%, 66.9\%, and 69.4\% at 256, 512, and 1,024 tokens,
+compared with 51.9\%, 59.4\%, and 56.9\% for BM25. The result does not turn
+these complete configurations into an ablation: it does not identify which
+Trimwise operation produces the observed difference.
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}p{0.42\linewidth}rrrr@{}}
+\toprule\noalign{}
+Method
+& 128 & 256 & 512 & 1,024 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Trimwise Lexical & \textbf{52.5\%} & 60.0\% & 61.9\% & 66.2\% \\
+Trimwise Hybrid & 49.4\% & \textbf{62.5\%} & \textbf{66.9\%} & \textbf{69.4\%} \\
+BM25 fixed-window retrieval & 43.8\% & 51.9\% & 59.4\% & 56.9\% \\
+Embedding top-\emph{k} fixed-window retrieval & 33.1\% & 40.6\% & 47.5\% & 50.0\% \\
+Embedding-MMR fixed-window retrieval & 33.1\% & 43.1\% & 48.1\% & 53.1\% \\
+\end{longtable}
+}
+
+Table 2: Direct fixed-window retrieval follow-up under normalized contiguous
+required-span containment. The 1,920 new compression outcomes use the same cases,
+queries, budgets, and strict scorer as Table 1; no downstream QA call is made.
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[keepaspectratio,alt={Strict source-span case pass by output-token budget for Trimwise and direct fixed-window retrieval baselines.}]{../../../benchmark/reports/direct-retrieval-v1/direct_retrieval_vs_budget.png}}
+\caption{Direct fixed-window retrieval follow-up. This separate experiment uses
+the same 160 cases and strict source-span metric as Table 1.}
+\label{fig:direct-retrieval}
+\end{figure}
+
+At 256 tokens, the paired Hybrid--BM25 difference is +10.6 percentage points
+(95\% interval [+1.9, +19.4]); the corresponding differences are +7.5
+[+1.3, +13.8] at 512 and +12.5 [+6.3, +19.4] at 1,024. At 128 tokens,
+the observed Hybrid--BM25 difference is +5.6 points, but its interval
+[-2.5, +13.8] includes zero. These are descriptive resampling intervals for
+this fixed suite, not independent confirmation.
+
+The aggregate masks a meaningful position interaction. At 256 tokens, Hybrid
+passes 77.5\%, 65.0\%, 62.5\%, and 45.0\% for beginning, middle, end, and
+multiple evidence respectively; BM25 records 62.5\%, 87.5\%, 45.0\%, and
+12.5\%. Embedding MMR similarly reaches 85.0\% in the middle stratum, above
+Hybrid's 65.0\%. Trimwise is therefore not uniformly stronger by position:
+the observed aggregate advantage comes with stronger beginning, end, and
+multiple-span results, while fixed-window retrieval is stronger on this
+middle-evidence subset. Warm median latency is also lower for BM25 (1.7 ms),
+embedding top-\emph{k} (12.5 ms), and embedding MMR (12.9 ms) than for Hybrid
+(42.8 ms). These trade-offs are part of the result, not implementation noise.
+
+\subsection{Component Ablation Follow-Up
+Results}\label{component-ablation-follow-up-results}
+
+Table 3 reports the exploratory component study. At the 128-token ceiling,
+removing the adaptive evidence cutoff lowers full Hybrid's feasible strict pass
+rate from 49.4\% to 44.4\%, a paired difference of +5.0 percentage points
+(95\% interval [+1.9, +8.8]). Replacing Markdown-aware segments with fixed
+windows lowers it to 40.0\%, a difference of +9.4 [+1.3, +17.5]. These two
+comparisons provide evidence that the evidence boundary and structural units
+matter under this suite's tightest budget.
+
+The MMR result is different. Relevance-only selection reaches 51.2\% at 128
+tokens and ties full Hybrid at 512 and 1,024 tokens; the full-Hybrid minus
+relevance-only interval at 128 is -1.9 [-5.6, +1.9]. The experiment therefore
+does not show a consistent strict-retention benefit from MMR on this workload.
+At 256 tokens and above, all interval estimates for the cutoff and fixed-window
+variants include zero. The higher observed 1,024-token rates of the no-cutoff
+and fixed-window variants are consequently not evidence that either variant is
+generally preferable.
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}p{0.43\linewidth}rrrr@{}}
+\toprule\noalign{}
+Hybrid configuration
+& 128 & 256 & 512 & 1,024 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Complete Hybrid & 49.4\% & \textbf{62.5\%} & 66.9\% & 69.4\% \\
+Relevance-only (no MMR) & \textbf{51.2\%} & 61.9\% & 66.9\% & 69.4\% \\
+No adaptive evidence cutoff & 44.4\% & 61.9\% & \textbf{67.5\%} & \textbf{72.5\%} \\
+Fixed 128-token source windows & 40.0\% & 58.8\% & 61.9\% & 71.2\% \\
+\end{longtable}
+}
+
+Table 3: Exploratory Hybrid component study under normalized contiguous
+required-span containment. Every variant uses the same cases, query, encoder,
+fusion, source-order composition, budget counter, and strict scorer as Hybrid;
+each changes only the named mechanism. The 1,920 outcomes are a separate
+compression experiment and make no downstream QA calls.
+
+\begin{figure}
+\centering
+\pandocbounded{\includegraphics[keepaspectratio,alt={Strict case pass across four output-token budgets for Trimwise Hybrid and the three component variants.}]{../../../benchmark/reports/ablation-v1/ablation_vs_hybrid.png}}
+\caption{Exploratory Hybrid component study. The paired intervals reported in
+the text are necessary for interpreting the small high-budget differences.}
+\label{fig:component-ablation}
+\end{figure}
+
 \subsection{Behaviour Across Budgets}\label{behaviour-across-budgets}
 
 \begin{figure}
 \centering
 \pandocbounded{\includegraphics[keepaspectratio,alt={Normalized contiguous required-span containment by query-aware output-token budget.}]{../../../benchmark/reports/evidence-sensitivity-v1-2/normalized_contiguous_vs_budget.png}}
 \caption{Normalized contiguous required-span containment by query-aware
-output-token budget. The 160-case all-case rate is the primary v1.2 result;
+output-token budget. The 160-case all-case rate is the primary strict result;
 the local ordered 80\% and 90\% sensitivity summaries are released alongside
 the figure.}
 \end{figure}
@@ -1632,7 +1806,7 @@ the figure.}
 \begin{figure}
 \centering
 \pandocbounded{\includegraphics[keepaspectratio,alt={Strict source-span case pass shown separately for natural placement and controlled relocation cohorts.}]{../../../benchmark/reports/evidence-sensitivity-v1-2/natural_vs_relocated.png}}
-\caption{Strict v1.2 cohort sensitivity. The top panel uses the 135 natural
+\caption{Strict cohort sensitivity. The top panel uses the 135 natural
 placements and is unbalanced by position because it contains 15 natural end
 cases. The bottom panel uses 25 controlled end relocations. It is a construction
 diagnostic, not a causal estimate of naturally occurring end-evidence behavior.}
@@ -1667,7 +1841,7 @@ and the composition of the remaining source. The combined 40-case end stratum
 is useful for the balanced diagnostic, but not an estimate of naturally
 occurring end-evidence performance.
 
-The paired v1.2 bootstrap intervals show a positive Hybrid--RECOMP difference
+The paired strict-score bootstrap intervals show a positive Hybrid--RECOMP difference
 under the primary metric at every budget: +21.9 percentage points (95\%
 interval [+13.1, +31.2]) at 128 tokens, +31.9 [+22.5, +41.2] at 256,
 +31.9 [+21.9, +41.9] at 512, and +34.4 [+25.0, +43.8] at 1,024. The full
@@ -1684,7 +1858,7 @@ evidence. Whether leaving capacity unused is desirable depends on a
 downstream task; its source-level benefit here should not be read as
 proof that a shorter excerpt always produces a better answer.
 
-Strict v1.2 position-level results are also uneven. At 256 tokens, Hybrid
+Strict position-level results are also uneven. At 256 tokens, Hybrid
 passes 77.5\% for beginning evidence, 65.0\% for middle evidence, 62.5\%
 for end evidence, and 45.0\% for multiple-span evidence. Lexical records
 72.5\%, 65.0\%, 57.5\%, and 45.0\% in the same order; RECOMP records
@@ -1735,8 +1909,7 @@ quality more directly.
 \subsection{Budget Compliance and
 Runtime}\label{budget-compliance-and-runtime}
 
-Every one of the 6,400 saved compression calls returned a successful
-runner status. Under the shared counter, the LLMLingua GPT-2 token-pruning
+All 6,400 original compression calls completed successfully. Under the shared counter, the LLMLingua GPT-2 token-pruning
 adapter exceeded the ceiling in 196 of 640 query-aware calls (30.6\%), with
 a maximum 139-token overflow, and the LongLLMLingua GPT-2 single-context
 adapter did so in 357 calls (55.8\%), with a maximum 169-token overflow.
@@ -1761,30 +1934,27 @@ specified machine.
 
 \subsection{Component Scope}\label{what-this-study-does-not-ablate}
 
-This study compares complete deployed configurations. Lexical and Hybrid
-differ in several operations: Hybrid requests semantic vectors, combines
-normalized lexical and semantic scores, and can use dense similarity
-during MMR. Their observed difference is consequently a
-configuration-level effect, not an estimate of the individual
-contributions of embeddings, score fusion, or dense diversity. The
-comparisons with the RECOMP NQ extractive sentence adapter, the
-LLMLingua GPT-2 token-pruning adapter, and the LongLLMLingua GPT-2
-single-context adapter likewise combine differences in algorithm and
-implementation stack.
+The component study isolates three practical changes within Hybrid: the MMR
+diversity penalty, the adaptive evidence-pool boundary, and candidate
+segmentation. It does not isolate the effects of semantic retrieval, score
+fusion, source-order reconstruction, heading handling, or the managed encoder.
+Lexical and Hybrid likewise remain complete configurations, as do the
+comparisons with the three query-aware adapters and the direct retrieval
+baselines.
 
-The comparison still informs configuration choice on the evaluated
-workload: Lexical is fastest and has the highest observed 128-token
-normalized contiguous containment rate, while Hybrid is stronger at larger
-ceilings. An ablation study would hold the source corpus and all other choices fixed
-while varying segmentation granularity, lexical score, semantic score,
-hybrid fusion, MMR, query-aware evidence cutoff, or source-order
-reconstruction one at a time.
+Within the fixed suite, the study supports a narrow interpretation. Structural
+segments and the evidence cutoff have measurable advantages at the 128-token
+ceiling, while MMR does not show a consistent advantage under the strict score.
+At larger ceilings, the paired intervals do not distinguish the tested
+variants. These estimates are conditional on the current source collection,
+annotations, encoder, and implementation; they are not evidence that one
+mechanism is necessary for every prompt-assembly workload.
 
 \subsection{Observed Failure Modes}\label{observed-failure-modes}
 
 The results reveal four failure modes that matter more than the
 aggregate curve. First, multiple required spans are difficult: under the
-strict v1.2 metric, Hybrid reaches only 45.0\% case pass in that stratum
+strict metric, Hybrid reaches only 45.0\% case pass in that stratum
 from 256 through 1,024 tokens. A single relevance-ranked fragment can be highly useful while
 another necessary fragment is remote, weakly lexical, or excluded by the
 evidence cutoff. Source-order reconstruction makes the selected pieces
@@ -1802,7 +1972,7 @@ fails its sole required span. The failure is distinct from positional
 truncation: the selector retrieves a semantically related policy
 constraint that is insufficient for the task.
 
-Third, the strict v1.2 case conjunction makes partial success visible as
+Third, the strict case conjunction makes partial success visible as
 failure. A method that retains three out of four required items receives
 zero source-span-survival pass, even though its evidence F1 may be
 nonzero. That is appropriate for tasks requiring every listed item, but it
@@ -1856,6 +2026,19 @@ evaluated query-aware comparators at all four ceilings and satisfy the
 shared token counter more reliably. These findings concern selection
 from one already-chosen source under the supplied annotations, adapter
 configurations, and budgets.
+
+The separate direct-retrieval follow-up extends that comparison to simple
+fixed-window selectors. It favors both complete Trimwise configurations in the
+all-case aggregate, but the middle-evidence result favors BM25 and embedding
+MMR. The result supports a configuration choice under the documented workload;
+it does not identify a universal winner or a causal contribution from any one
+Trimwise component.
+
+The component follow-up narrows that last qualification for three specific
+Hybrid choices. It supports structural segmentation and the evidence cutoff at
+the tightest tested ceiling, and it finds no stable strict-retention benefit
+from MMR across the four budgets. Broader component claims still require
+independent corpora, alternative encoders, and repeated evaluations.
 
 The implementation contributes a separate output contract. Trimwise
 composes exact source slices under its configured measurement rule,
@@ -1938,13 +2121,18 @@ required-span containment than the evaluated LLMLingua GPT-2
 token-pruning adapter, LongLLMLingua GPT-2 single-context adapter, and
 RECOMP NQ extractive sentence adapter at 128, 256, 512, and 1,024 tokens.
 The same ordering holds under local ordered 80\% and 90\% sensitivities.
+In a separate fixed-window retrieval follow-up, both complete Trimwise
+configurations also lead in the all-case aggregate, while BM25 and embedding
+MMR lead on the middle-evidence stratum at 256 tokens.
+An exploratory component study finds low-budget support for structural
+segmentation and the evidence cutoff, but no consistent effect for MMR.
 The evaluation also exposes instruction-survival and multiple-span
 failures.
 
 These findings support query-aware, source-faithful selection for prompt
 assembly from a known source under a hard budget. Priority next steps are
-evaluation on independent task suites, including component ablations and
-repeated downstream answer assessments.
+evaluation on independent task suites, broader component studies, stronger
+baseline configurations, and repeated downstream answer assessments.
 
 \section{Limitations}\label{limitations}
 
@@ -1965,7 +2153,10 @@ for other languages, document types, private institutional corpora, or
 production agent tasks. The API evaluator was sampled once per context,
 uses a lightweight token-containment metric, and may know public-source
 facts independently of the supplied context. No human answer assessment
-or component ablation was performed.
+was performed. The exploratory component study changes only three Hybrid
+mechanisms on this same author-annotated suite; it does not establish whether
+those effects generalize across encoders, document collections, or downstream
+tasks.
 
 The saved benchmark rows predate span metadata, although the 0.2.0
 implementation comparison shows that adding spans does not change
@@ -1995,26 +2186,25 @@ system has been validated on sensitive institutional material.
 
 \section{Artifact Availability}\label{artifact-availability}
 
-The immutable v1.1 research artifact is the annotated
-\href{https://github.com/tenwritehq/trimwise/tree/paper-v1.1}{\texttt{paper-v1.1}
-tag in the Trimwise repository}. It contains the original Trimwise
-implementation; frozen source and 160-case position-controlled datasets;
-source, method, and runtime manifests; raw compression and downstream-QA JSONL
-rows; aggregate summaries and paired statistics; HTML reports and figures; and
-the manuscript source. The parallel v1.2 scorer and its pre-aggregate protocol
-freeze are in the annotated
-\href{https://github.com/tenwritehq/trimwise/tree/paper-v1.2}{\texttt{paper-v1.2}
-tag}; the original strict all-case summary, manifest, and protocol identify the
-frozen 6,400 compression rows. This revision adds saved-output subgroup,
-self-source-exclusion, and paired-bootstrap analyses under that unchanged v1.2
-metric. Its complete manuscript, source, raw rows, derived CSVs, reports, and
-PDF are released as the annotated
-\href{https://github.com/tenwritehq/trimwise/tree/paper-v1.3}{\texttt{paper-v1.3}
-tag}. The runtime manifest retains its historical \,\texttt{paper-v1} release
-label because it records the original compression run; it is not the v1.2
-scorer manifest. Reproduction commands are recorded in
-\texttt{benchmark/README.md}; the manuscript build command is recorded in
-\texttt{assets/paper/latex/README.md}.
+The current manuscript, frozen 160-case dataset, 6,400 original compression
+outcomes, 1,920 direct-retrieval follow-up outcomes, 1,920 component-study
+outcomes, downstream QA outcomes,
+evaluation implementation,
+aggregation and paired-statistics scripts, reports, figures, and PDF are
+released in the annotated
+\href{https://github.com/tenwritehq/trimwise/tree/paper-v1.4}{\texttt{paper-v1.4}
+artifact}. Reproduction commands are recorded in \texttt{benchmark/README.md};
+the manuscript build command is recorded in \texttt{assets/paper/latex/README.md}.
+
+\paragraph{Artifact history.} The version labels identify preserved stages of
+the work; they are not names of competing methods or results that a reader must
+decode. The original compression-run manifest retains the historical
+\texttt{paper-v1} label. \texttt{paper-v1.2} records the strict scorer and
+pre-aggregate protocol used to rescore those frozen outputs. The present
+\texttt{paper-v1.4} artifact adds the direct-retrieval and component-study
+compression experiments and the current manuscript. Earlier manuscript-only tags remain in Git history;
+they are superseded by this artifact and are not needed to reproduce the
+results reported here.
 
 \section{Acknowledgments}\label{acknowledgments}
 
@@ -2196,12 +2386,12 @@ stated in Section 5.5. There is no retry policy for saved API failures,
 no temperature parameter, no hidden judge model, and no manual parsing
 correction.
 
-\section{Historical v1.1 Diagnostics}\label{historical-v1-1-diagnostics}
+\section{Historical Bag-of-Token Diagnostics}\label{historical-v1-1-diagnostics}
 
-\subsection{Historical v1.1 paired case-pass
+\subsection{Historical paired case-pass
 differences}\label{paired-case-pass-differences}
 
-Table 3 is generated by \texttt{scripts/paired\_stats.py} from saved
+Table 4 is generated by \texttt{scripts/paired\_stats.py} from saved
 query-aware compression outputs under the historical bag-of-token scorer.
 Each row uses all 160 paired cases; the difference is Trimwise Hybrid minus
 the named adapter in percentage points. It reports percentile-bootstrap
@@ -2263,7 +2453,7 @@ LLMLingua-2 & 0.0\% & 0.0\% & 0.6\% & 4.4\% & 57.3\% \\
 \end{longtable}
 }
 
-All values are historical v1.1 case-pass rates over the same 160 cases.
+All values are historical bag-of-token case-pass rates over the same 160 cases.
 This table is not comparable to Table 1: the query-aware methods receive
 the case query during selection, whereas these methods do not.
 At 256 tokens, prefix truncation passes 90.0\% of beginning-evidence cases
@@ -2339,13 +2529,14 @@ documents.
   Primary citations in this manuscript were checked against primary or
   official sources.
 \item[$\boxtimes$]
-  The original raw outputs are frozen in the public \texttt{paper-v1} Git
-  snapshot; the v1.2 rescore and this report's derived results are released
-  with \texttt{paper-v1.3} (Section~\ref{artifact-availability}).
+  The original raw outputs, strict rescore, direct-retrieval follow-up, component
+  study, and
+  this report's derived results are released with \texttt{paper-v1.4}
+  (Section~\ref{artifact-availability}).
 \item[$\boxtimes$]
   \url{benchmark/data/manifests/runtime_manifest.json} preserves a local
   hardware, driver, package, model-artifact, configuration, and result-hash
-  snapshot. The manifest is released with the \texttt{paper-v1} snapshot;
+  snapshot. The manifest carries the historical \texttt{paper-v1} label;
   it remains post-run evidence rather than a portable performance claim.
 \item[$\boxtimes$]
   The local benchmark environment resolves the repository's Trimwise
@@ -2354,8 +2545,8 @@ documents.
   Independent human annotation or evaluation validates the task labels
   and answer metric.
 \item[$\square$]
-  A component ablation study isolates segmentation, ranking, diversity,
-  and composition choices.
+  An exploratory component study isolates MMR, the evidence cutoff, and
+  candidate segmentation within Hybrid on the frozen suite.
 \end{itemize}
 
 \bibliography{../references}

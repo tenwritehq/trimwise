@@ -16,6 +16,15 @@ vendor/*.whl
 !results/position_controlled_160_evidence_sensitivity_v1_2_relocated_only_summary.csv
 !results/position_controlled_160_evidence_sensitivity_v1_2_without_self_sources_summary.csv
 !results/position_controlled_160_evidence_sensitivity_v1_2_paired_stats.csv
+!results/position_controlled_160_direct_retrieval_results.jsonl
+!results/position_controlled_160_direct_retrieval_summary.csv
+!results/position_controlled_160_direct_retrieval_natural_only_summary.csv
+!results/position_controlled_160_direct_retrieval_relocated_only_summary.csv
+!results/position_controlled_160_direct_retrieval_without_self_sources_summary.csv
+!results/position_controlled_160_direct_retrieval_paired_stats.csv
+!results/position_controlled_160_ablation_results.jsonl
+!results/position_controlled_160_ablation_summary.csv
+!results/position_controlled_160_ablation_paired_stats.csv
 !results/position_controlled_160_results.jsonl
 !results/position_controlled_160_qa_gpt_5_4_nano.jsonl
 !results/position_controlled_160_qa_gpt_5_4_mini.jsonl
@@ -27,3 +36,9 @@ vendor/*.whl
 !reports/evidence-sensitivity-v1-2/normalized_contiguous_vs_budget.svg
 !reports/evidence-sensitivity-v1-2/natural_vs_relocated.png
 !reports/evidence-sensitivity-v1-2/natural_vs_relocated.svg
+!reports/direct-retrieval-v1/direct_retrieval_vs_budget.png
+!reports/direct-retrieval-v1/direct_retrieval_vs_budget.svg
+!reports/direct-retrieval-v1/direct_retrieval_by_position_256.png
+!reports/direct-retrieval-v1/direct_retrieval_by_position_256.svg
+!reports/ablation-v1/ablation_vs_hybrid.png
+!reports/ablation-v1/ablation_vs_hybrid.svg

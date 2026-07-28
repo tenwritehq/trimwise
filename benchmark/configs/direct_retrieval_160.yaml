@@ -1,0 +1,17 @@
+dataset: data/position_controlled_160.jsonl
+output: results/position_controlled_160_direct_retrieval_results.jsonl
+seed: 242
+cache_dir: cache/huggingface
+require_cuda: true
+use_gpu: true
+thermal:
+  enabled: true
+  pause_temperature_c: 70
+  resume_temperature_c: 60
+  hard_temperature_c: 75
+  cooldown_timeout_seconds: 1800
+budgets: [128, 256, 512, 1024]
+methods:
+  - {name: bm25, chunk_size: 128, overlap: 32, source_order: true}
+  - {name: embedding_topk, model_name: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2, chunk_size: 128, overlap: 32, source_order: true}
+  - {name: embedding_mmr, model_name: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2, chunk_size: 128, overlap: 32, mmr_lambda: 0.7, source_order: true}

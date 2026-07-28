@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trimwise direct retrieval baselines</title>
+<body style="font:18px/1.5 system-ui,sans-serif;max-width:1180px;margin:6vh auto;padding:24px;color:#172033">
+<p style="color:#526177;font-weight:700">QUERY-AWARE DIRECT BASELINES</p>
+<h1>Does Trimwise add more than ordinary retrieval?</h1>
+<p>Every method receives the same source, question, budgets, and strict source-span scorer.
+The three direct baselines use 128-token fixed windows with 32-token overlap and reconstruct their
+selected source windows in source order. No downstream LLM calls are included.</p>
+<img src="../assets/benchmark/direct_retrieval_vs_budget.svg" alt="Strict case pass versus budget for Trimwise and direct retrieval baselines." style="width:100%;height:auto">
+<table style="border-collapse:collapse;width:100%;margin:20px 0"><thead><tr><th>Method</th><th>128</th><th>256</th><th>512</th><th>1,024</th></tr></thead><tbody><tr><th>Trimwise Lexical</th><td>52.5%</td><td>60.0%</td><td>61.9%</td><td>66.2%</td></tr><tr><th>Trimwise Hybrid</th><td>49.4%</td><td>62.5%</td><td>66.9%</td><td>69.4%</td></tr><tr><th>BM25 fixed-window</th><td>43.8%</td><td>51.9%</td><td>59.4%</td><td>56.9%</td></tr><tr><th>Embedding top-k</th><td>33.1%</td><td>40.6%</td><td>47.5%</td><td>50.0%</td></tr><tr><th>Embedding + MMR</th><td>33.1%</td><td>43.1%</td><td>48.1%</td><td>53.1%</td></tr></tbody></table>
+<h2>Evidence survival versus feasible pass at 256 tokens</h2>
+<p>Span survival ignores prohibited content. Feasible pass also requires prohibited text to be absent
+and the output to fit its budget, so it reveals when retrieving more evidence also retrieves content
+the case explicitly forbids.</p>
+<table style="border-collapse:collapse;width:100%;margin:20px 0"><thead><tr><th>Method</th><th>Span survival</th><th>Feasible pass</th><th>Prohibited text</th></tr></thead><tbody><tr><th>Trimwise Lexical</th><td>71.9%</td><td>60.0%</td><td>18.1%</td></tr><tr><th>Trimwise Hybrid</th><td>74.4%</td><td>62.5%</td><td>18.1%</td></tr><tr><th>BM25 fixed-window</th><td>55.6%</td><td>51.9%</td><td>13.8%</td></tr><tr><th>Embedding top-k</th><td>40.6%</td><td>40.6%</td><td>6.9%</td></tr><tr><th>Embedding + MMR</th><td>43.1%</td><td>43.1%</td><td>6.9%</td></tr></tbody></table>
+<img src="../assets/benchmark/direct_retrieval_by_position_256.svg" alt="Strict case pass by evidence position at 256 tokens." style="width:100%;height:auto">
+</body></html>

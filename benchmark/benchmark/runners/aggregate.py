@@ -125,10 +125,43 @@ def _rescore_qa_rows(rows: list[dict[str, object]], cases: dict[str, dict[str, A
         row.update(score_answer(case, str(row.get("qa_output", ""))))
 
 
+def _load_compression_rows(paths: list[str]) -> list[dict[str, object]]:
+    """Load distinct saved compression rows from one or more JSONL files.
+
+    Args:
+        paths: JSONL paths whose rows belong to one comparison.
+
+    Returns:
+        Compression rows in supplied-file order.
+
+    Raises:
+        ValueError: If two files contain the same result identity.
+    """
+    rows: list[dict[str, object]] = []
+    identities: set[tuple[str, str, int, bool]] = set()
+    for input_path in paths:
+        with Path(input_path).open("r", encoding="utf-8") as source:
+            for line in source:
+                if not line.strip():
+                    continue
+                row = json.loads(line)
+                identity = (
+                    str(row["case_id"]),
+                    str(row["method_id"]),
+                    int(row["budget"]),
+                    bool(row.get("query_aware", True)),
+                )
+                if identity in identities:
+                    raise ValueError(f"duplicate compression result: {identity}")
+                identities.add(identity)
+                rows.append(row)
+    return rows
+
+
 def main() -> None:
     """Write grouped quality, budget, latency, memory, and failure statistics."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default="results/position_controlled_160_results.jsonl")
+    parser.add_argument("--input", action="append")
     parser.add_argument("--dataset", default="data/position_controlled_160.jsonl")
     parser.add_argument("--qa-input", action="append", default=[])
     parser.add_argument("--output", default="results/position_controlled_160_summary.csv")
@@ -136,8 +169,8 @@ def main() -> None:
     parser.add_argument("--exclude-case-prefix", action="append", default=[])
     args = parser.parse_args()
 
-    with Path(args.input).open("r", encoding="utf-8") as source:
-        rows = [json.loads(line) for line in source if line.strip()]
+    input_paths = args.input or ["results/position_controlled_160_results.jsonl"]
+    rows = _load_compression_rows(input_paths)
     cases: dict[str, dict[str, Any]] | None = (
         _case_lookup(args.dataset) if args.position_origin else None
     )

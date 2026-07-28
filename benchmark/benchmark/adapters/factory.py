@@ -6,7 +6,7 @@ from typing import Any
 
 from .base import CompressorAdapter
 from .bm25_adapter import BM25Adapter
-from .embedding_adapter import EmbeddingMMRAdapter
+from .embedding_adapter import EmbeddingMMRAdapter, EmbeddingTopKAdapter
 from .llmlingua2_adapter import LLMLingua2Adapter
 from .llmlingua_adapter import LLMLinguaAdapter
 from .long_llmlingua_adapter import LongLLMLinguaAdapter
@@ -54,11 +54,26 @@ def build_adapter(spec: dict[str, Any]) -> CompressorAdapter:
             cache_dir=spec.get("cache_dir"),
             use_gpu=bool(spec.get("use_gpu", False)),
         )
+    if name == "embedding_topk":
+        return EmbeddingTopKAdapter(
+            model_name=str(
+                spec.get(
+                    "model_name",
+                    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+                )
+            ),
+            chunk_size=int(spec.get("chunk_size", 128)),
+            overlap=int(spec.get("overlap", 32)),
+            source_order=bool(spec.get("source_order", True)),
+            cache_dir=spec.get("cache_dir"),
+            use_gpu=bool(spec.get("use_gpu", False)),
+        )
     if name.startswith("trimwise_"):
         return TrimwiseAdapter(
             name.removeprefix("trimwise_"),
             cache_dir=spec.get("cache_dir"),
             use_gpu=bool(spec.get("use_gpu", False)),
+            ablation=spec.get("ablation"),
         )
     if name in {"llmlingua", "llmlingua_queryless"}:
         return LLMLinguaAdapter(
