@@ -6,6 +6,7 @@ from trimwise.models import (
     SourceSpan,
     Strategy,
     TrimConfig,
+    TrimInput,
     TrimResult,
 )
 from trimwise.trimmer import Trimmer
@@ -16,6 +17,7 @@ __all__ = [
     "SourceSpan",
     "Strategy",
     "TrimConfig",
+    "TrimInput",
     "TrimResult",
     "Trimmer",
 ]

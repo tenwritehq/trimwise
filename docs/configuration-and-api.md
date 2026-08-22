@@ -39,17 +39,19 @@ from trimwise import (
     SourceSpan,
     Strategy,
     TrimConfig,
+    TrimInput,
     TrimResult,
     Trimmer,
 )
 ```
 
-These are the package's seven documented exports:
+These are the package's eight documented exports:
 
 | Name | Purpose |
 | --- | --- |
 | `Trimmer` | Runs synchronous or asynchronous trimming and reuses semantic state |
 | `TrimConfig` | Stores immutable reusable configuration |
+| `TrimInput` | Describes one independent request for asynchronous batch trimming |
 | `TrimResult` | Reports the excerpt, measurements, resolved strategy, and whether text changed |
 | `SourceSpan` | Identifies one retained range in the original input string |
 | `Strategy` | Enumerates automatic, structural, lexical, semantic, and hybrid selection |
@@ -58,6 +60,25 @@ These are the package's seven documented exports:
 
 Internal modules and underscored names are not part of the compatibility promise. Trimwise ships a
 `py.typed` marker, so type checkers can use its inline annotations from the installed package.
+
+## `TrimInput`
+
+Use `TrimInput` to describe one source for `atrim_many()`:
+
+```text
+TrimInput(
+    text: str,
+    limit: int,
+    unit: BudgetUnit | str = BudgetUnit.TOKENS,
+    strategy: Strategy | str = Strategy.AUTO,
+    query: str | None = None,
+    token_counter: Callable[[str], int] | None = None,
+)
+```
+
+Its fields have the same meanings and validation rules as the arguments to `trim()` and `atrim()`.
+Validation occurs when `atrim_many()` runs, so a batch fails with the same error its individual
+request would raise.
 
 ## `Trimmer`
 
@@ -76,7 +97,7 @@ Trimmer(
 | --- | --- | --- |
 | `config` | `TrimConfig()` | Reusable measurement, ranking, marker, and FastEmbed settings |
 | `embedding_callback` | `None` | Synchronous query-and-passage embedding backend |
-| `async_embedding_callback` | `None` | Asynchronous query-and-passage embedding backend used through `atrim()` |
+| `async_embedding_callback` | `None` | Asynchronous query-and-passage embedding backend used through `atrim()` or `atrim_many()` |
 
 Only one embedding callback may be configured. Non-callable callback values raise `TypeError`, and
 supplying both callback forms raises `ValueError`.
@@ -179,6 +200,54 @@ With an async callback, preparation and CPU work use worker threads while the ca
 on the calling event loop. Cancellation can propagate into an awaited async callback, but it cannot
 terminate a worker thread that has already started. See
 [Semantic Models and Async Usage](semantic-and-async.md) for the full execution model.
+
+## `atrim_many()`
+
+Use `atrim_many()` for independent source windows that can share one asynchronous embedding
+callback batch:
+
+```text
+async atrim_many(
+    inputs: Sequence[TrimInput],
+    *,
+    deduplicate: bool = False,
+) -> list[TrimResult]
+```
+
+```python
+from trimwise import TrimInput, Trimmer
+
+
+results = await Trimmer(async_embedding_callback=embed).atrim_many(
+    [
+        TrimInput(
+            text=source,
+            limit=500,
+            strategy="hybrid",
+            query="What caused incident ORION-774?",
+        )
+        for source in source_windows
+    ],
+    deduplicate=True,
+)
+```
+
+It returns one `TrimResult` per input in the supplied order. Each result keeps its own budget,
+counts, selected text, and exact source spans. Inputs that already fit, and structural or lexical
+inputs, never enter an embedding batch.
+
+With `async_embedding_callback`, oversized semantic and hybrid inputs are prepared independently
+off the event loop, then grouped by their normalized query text. Each group invokes the callback
+once with that query and the contextual candidate passages from its sources. Different queries use
+separate callback invocations. By default, every passage occurrence is sent. With
+`deduplicate=True`, exact contextual passage strings are sent once per query group in first-seen
+order, and their vector is reused for repeated candidates. This best-effort option does not compare
+raw source fragments, fuzzy-match, cache across calls, or batch unrelated calls; use it only when
+your callback returns the same vector for the same query and passage regardless of batch position
+or composition. Without an asynchronous callback, `atrim_many()` still runs each input through the
+established async path but has no embedding callback to combine. Preparation is concurrent, so a
+`token_counter` shared by multiple inputs must be safe for concurrent calls. `deduplicate` must be
+a boolean.
 
 ## Validation and fast paths
 

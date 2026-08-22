@@ -331,17 +331,23 @@ Choose between them based on how your application schedules work:
 ```python
 import asyncio
 
-from trimwise import Trimmer
+from trimwise import TrimInput, Trimmer
 
 
 async def main() -> None:
-    """Trim several sources while keeping the event loop responsive."""
-    trimmer = Trimmer()
+    """Batch source windows that share one retrieval query."""
+    trimmer = Trimmer(async_embedding_callback=embed)
     sources = [
         "First source with an opening fact and a later decision.",
         "Second source with a warning and a final recommendation.",
     ]
-    results = await asyncio.gather(*(trimmer.atrim(source, 8, unit="words") for source in sources))
+    results = await trimmer.atrim_many(
+        [
+            TrimInput(source, 8, unit="words", strategy="hybrid", query="What was decided?")
+            for source in sources
+        ],
+        deduplicate=True,
+    )
     for result in results:
         print(result.text)
 
@@ -349,12 +355,25 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+`atrim_many()` prepares every input independently in worker threads. With an asynchronous callback,
+it groups oversized semantic and hybrid inputs by their normalized query text, invokes the callback
+once per group, and maps the vectors back to the separate selection requests. Fitting, structural,
+and lexical inputs bypass callback batches. Different query groups remain separate because
+asymmetric embedding models may encode queries differently from passages.
+
+`deduplicate=True` removes exact duplicate contextual passage strings within each query group and
+reuses the returned vector wherever that string occurred. It preserves first-seen order and is off
+by default because a callback may intentionally depend on batch position or composition. It does
+not deduplicate similar text, compare raw source fragments without their ranking context, or retain
+vectors after the call.
+
 For CPU-only structural or lexical work, async calls can overlap at the worker-thread level. For
-FastEmbed, calls sharing one `Trimmer` still wait on that instance's model lock.
+FastEmbed, calls sharing one `Trimmer` still wait on that instance's model lock. `atrim_many()`
+does not add cross-call background batching or make parallel CPU inference requests.
 
 ## Cancellation
 
-Cancellation behavior depends on what `atrim()` is awaiting:
+Cancellation behavior depends on what `atrim()` or `atrim_many()` is awaiting:
 
 - **Asynchronous embedding callback:** cancellation propagates into the callback. Its `finally`
   blocks and normal async cleanup can run.

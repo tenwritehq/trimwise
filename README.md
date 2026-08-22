@@ -231,7 +231,10 @@ reused by that `Trimmer`. Structural and lexical calls never load it.
 
 The core installation can use semantic and hybrid strategies without FastEmbed when you provide an
 embedding callback. Use a synchronous callback with `trim()` or `atrim()`, or an asynchronous
-callback with `atrim()` for an async embedding service.
+callback with `atrim()` and `atrim_many()` for an async embedding service. `atrim_many()` batches
+oversized semantic or hybrid sources that share one query into one callback invocation while
+preserving each source's independent result and spans. Pass `deduplicate=True` to send exact
+duplicate contextual passages only once within each shared-query batch.
 
 Your callback receives the query separately from the candidate passages and returns one query
 vector plus one same-dimension vector per passage. Trimwise validates and scores the vectors; your
@@ -276,19 +279,33 @@ field, argument, validation rule, and result value.
 ## Async use
 
 `atrim()` keeps parsing, measurement, ranking, model loading, inference, callbacks, and selection
-from blocking the event loop:
+from blocking the event loop. For independent sources sharing one query and an asynchronous
+embedding callback, pass `TrimInput` values to `atrim_many()` to make one callback batch:
 
 ```python
-result = await Trimmer().atrim(
-    document,
-    limit=500,
-    strategy="lexical",
-    query="Which decision was approved?",
+from trimwise import TrimInput, Trimmer
+
+
+trimmer = Trimmer(async_embedding_callback=embed)
+results = await trimmer.atrim_many(
+    [
+        TrimInput(
+            source,
+            limit=500,
+            strategy="hybrid",
+            query="Which decision was approved?",
+        )
+        for source in source_windows
+    ],
+    deduplicate=True,
 )
 ```
 
-Cancellation stops waiting for the result but cannot terminate synchronous work already running in
-a worker thread. Async embedding callbacks are awaited directly and can receive cancellation.
+Deduplication is off by default and matches only complete contextual passage strings; it does not
+fuzzy-match source text or cache across calls. Fitting, structural, and lexical inputs skip the
+callback batch. Cancellation stops waiting for the result but cannot terminate synchronous work
+already running in a worker thread. Async embedding callbacks are awaited directly and can receive
+cancellation.
 
 ## What Trimwise guarantees
 
