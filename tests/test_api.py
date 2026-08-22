@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from types import MappingProxyType
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -13,16 +13,44 @@ from trimwise import BudgetUnit, SourceSpan, Strategy, TrimConfig, Trimmer
 
 
 def test_public_exports_are_intentionally_small() -> None:
-    """Expose only the seven documented public objects."""
+    """Expose only the eight documented public objects."""
     assert trimwise.__all__ == [
         "BudgetUnit",
         "SemanticBackendError",
         "SourceSpan",
         "Strategy",
         "TrimConfig",
+        "TrimInput",
         "TrimResult",
         "Trimmer",
     ]
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_rejects_non_input_values() -> None:
+    """Reject batch values that cannot represent independent trim requests."""
+    with pytest.raises(TypeError, match="only TrimInput"):
+        await Trimmer().atrim_many(["not a trim input"])  # type: ignore[list-item]
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_rejects_non_sequence_input() -> None:
+    """Require the explicit collection contract instead of consuming arbitrary iterables."""
+    with pytest.raises(TypeError, match="must be a sequence"):
+        await Trimmer().atrim_many(cast(Sequence[Any], object()))
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_accepts_an_empty_batch() -> None:
+    """Return an empty ordered result for an empty request sequence."""
+    assert await Trimmer().atrim_many([]) == []
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_rejects_nonboolean_deduplication() -> None:
+    """Reject values that could accidentally enable passage deduplication."""
+    with pytest.raises(TypeError, match="deduplicate must be a bool"):
+        await Trimmer().atrim_many([], deduplicate=cast(bool, 1))
 
 
 def test_default_config_is_immutable() -> None:

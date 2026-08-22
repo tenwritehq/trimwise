@@ -1,6 +1,6 @@
 ---
 title: Trimwise Python API Reference Guide
-description: Browse the public Trimwise Python API, including trimming, configuration, results, strategies, budget units, and semantic backend errors.
+description: Browse the public Trimwise Python API, including trimming, batch inputs, configuration, results, strategies, budget units, and semantic backend errors.
 ---
 
 # API Reference
@@ -9,7 +9,7 @@ This page documents Trimwise **{{ trimwise_version }}** directly from its public
 Signatures, type annotations, and descriptions therefore stay aligned with the installed API.
 Expand **Source code** under any entry to inspect its implementation and source line numbers.
 
-Trimwise intentionally exports only the seven objects below. Internal segmentation, measurement,
+Trimwise intentionally exports only the eight objects below. Internal segmentation, measurement,
 ranking, semantic-adapter, and orchestration helpers are not part of the compatibility promise.
 
 ## Trimming
@@ -17,6 +17,14 @@ ranking, semantic-adapter, and orchestration helpers are not part of the compati
 Use [`Trimmer`][trimwise.Trimmer] for synchronous or asynchronous trimming.
 
 ::: trimwise.Trimmer
+
+## Batch inputs
+
+Use [`TrimInput`][trimwise.TrimInput] to describe each independent source passed to
+[`Trimmer.atrim_many()`][trimwise.Trimmer.atrim_many]. Its `deduplicate=True` option sends exact
+duplicate contextual passages once per normalized-query callback batch.
+
+::: trimwise.TrimInput
 
 ## Configuration
 

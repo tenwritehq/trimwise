@@ -10,7 +10,7 @@ from itertools import pairwise
 from typing import cast
 
 from trimwise.measurement import Measurer, TokenCounter
-from trimwise.models import BudgetUnit, SourceSpan, Strategy, TrimConfig, TrimResult
+from trimwise.models import BudgetUnit, SourceSpan, Strategy, TrimConfig, TrimInput, TrimResult
 from trimwise.ranking import (
     CandidateRanking,
     _contextual_ranking_texts,
@@ -252,6 +252,118 @@ class Trimmer:
         output = await invoke_async_embedding_callback(callback, query_text, passages)
         return await asyncio.to_thread(self._complete_with_embedding_output, prepared, output)
 
+    async def atrim_many(
+        self,
+        inputs: Sequence[TrimInput],
+        *,
+        deduplicate: bool = False,
+    ) -> list[TrimResult]:
+        """Trim independent sources, batching async semantic work by query.
+
+        Inputs are prepared and completed independently. When an asynchronous embedding callback
+        is configured, oversized semantic and hybrid inputs with the same normalized query share
+        one callback invocation while retaining their own limits and source spans. Exact
+        contextual passages can optionally be embedded once per query group.
+
+        Args:
+            inputs: Independent trim requests returned in the supplied order.
+            deduplicate: Whether to send each exact contextual passage once per query group.
+
+        Returns:
+            One measured extractive result per input, in input order.
+
+        Raises:
+            TypeError: If an input is not a ``TrimInput`` or an argument has an unsupported type.
+            ValueError: If an input has an invalid value or strategy/query combination.
+            SemanticBackendError: If an explicitly requested semantic backend fails.
+        """
+        if not isinstance(deduplicate, bool):
+            raise TypeError("deduplicate must be a bool")
+        arguments = _batch_arguments(inputs)
+        callback = self._async_embedding_callback
+        if callback is None:
+            return list(
+                await asyncio.gather(
+                    *(asyncio.to_thread(self._trim, argument) for argument in arguments)
+                )
+            )
+
+        prepared_inputs = list(
+            await asyncio.gather(
+                *(asyncio.to_thread(self._prepare, argument) for argument in arguments)
+            )
+        )
+        results: list[TrimResult | None] = [None] * len(prepared_inputs)
+        ordinary: list[tuple[int, _PreparedTrim]] = []
+        semantic: list[tuple[int, _PreparedTrim]] = []
+        for index, prepared in enumerate(prepared_inputs):
+            if isinstance(prepared, TrimResult):
+                results[index] = prepared
+            elif prepared.request.strategy in {Strategy.SEMANTIC, Strategy.HYBRID}:
+                semantic.append((index, prepared))
+            else:
+                ordinary.append((index, prepared))
+
+        ordinary_results = await asyncio.gather(
+            *(asyncio.to_thread(self._complete, prepared) for _, prepared in ordinary)
+        )
+        for (index, _), result in zip(ordinary, ordinary_results, strict=True):
+            results[index] = result
+
+        contextual_passages = await asyncio.gather(
+            *(
+                asyncio.to_thread(_contextual_ranking_texts, prepared.segments)
+                for _, prepared in semantic
+            )
+        )
+        groups: dict[str, list[tuple[int, _PreparedTrim, list[str]]]] = {}
+        for (index, prepared), passages in zip(semantic, contextual_passages, strict=True):
+            groups.setdefault(prepared.request.query or "", []).append((index, prepared, passages))
+
+        for query, group in groups.items():
+            passages = [passage for _, _, batch in group for passage in batch]
+            callback_passages = list(dict.fromkeys(passages)) if deduplicate else passages
+            passage_rows: Sequence[int]
+            if deduplicate:
+                row_by_passage = {
+                    passage: row for row, passage in enumerate(callback_passages, start=1)
+                }
+                passage_rows = [row_by_passage[passage] for passage in passages]
+            else:
+                passage_rows = range(1, len(passages) + 1)
+            output = await invoke_async_embedding_callback(callback, query, callback_passages)
+            vectors = await asyncio.to_thread(
+                normalize_callback_output,
+                output,
+                len(callback_passages),
+            )
+            offset = 0
+            vector_requests: list[tuple[int, _PreparedTrim, _SemanticVectors]] = []
+            for index, prepared, batch in group:
+                end = offset + len(batch)
+                vector_requests.append(
+                    (
+                        index,
+                        prepared,
+                        _SemanticVectors(vectors.matrix[[0, *passage_rows[offset:end]]]),
+                    )
+                )
+                offset = end
+            completed = await asyncio.gather(
+                *(
+                    asyncio.to_thread(
+                        self._complete_with_semantic_vectors,
+                        prepared,
+                        request_vectors,
+                    )
+                    for _, prepared, request_vectors in vector_requests
+                )
+            )
+            for (index, _, _), result in zip(vector_requests, completed, strict=True):
+                results[index] = result
+
+        return cast(list[TrimResult], results)
+
     def _trim(self, arguments: _TrimArguments) -> TrimResult:
         """Run one synchronous call through preparation, ranking, and selection.
 
@@ -336,6 +448,22 @@ class Trimmer:
             Measured extractive trimming result.
         """
         vectors = normalize_callback_output(output, len(prepared.segments))
+        return self._complete_with_semantic_vectors(prepared, vectors)
+
+    def _complete_with_semantic_vectors(
+        self,
+        prepared: _PreparedTrim,
+        vectors: _SemanticVectors,
+    ) -> TrimResult:
+        """Rank and select one prepared input from normalized semantic vectors.
+
+        Args:
+            prepared: Validated, measured, and segmented input.
+            vectors: Query and candidate vectors already validated by Trimwise.
+
+        Returns:
+            Measured extractive trimming result.
+        """
         ranking = _rank_with_semantic_vectors(_ranking_request(prepared), vectors)
         return self._select(prepared, ranking)
 
@@ -419,6 +547,37 @@ def _ranking_request(prepared: _PreparedTrim) -> _RankingRequest:
         request.query,
         prepared.measurer,
     )
+
+
+def _batch_arguments(inputs: Sequence[TrimInput]) -> list[_TrimArguments]:
+    """Convert public batch requests into the ordinary trim call shape.
+
+    Args:
+        inputs: User-provided sequence of independent trim requests.
+
+    Returns:
+        Unvalidated arguments ready for the established preparation path.
+
+    Raises:
+        TypeError: If the input is not a sequence of ``TrimInput`` values.
+    """
+    if not isinstance(inputs, Sequence):
+        raise TypeError("inputs must be a sequence of TrimInput")
+    arguments: list[_TrimArguments] = []
+    for item in inputs:
+        if not isinstance(item, TrimInput):
+            raise TypeError("inputs must contain only TrimInput values")
+        arguments.append(
+            _TrimArguments(
+                item.text,
+                item.limit,
+                item.unit,
+                item.strategy,
+                item.query,
+                item.token_counter,
+            )
+        )
+    return arguments
 
 
 def _rank_with_semantic_vectors(

@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from trimwise import SemanticBackendError, SourceSpan, TrimConfig, Trimmer
+from trimwise import SemanticBackendError, SourceSpan, TrimConfig, TrimInput, Trimmer
 from trimwise.semantic import SemanticEmbedder
 
 
@@ -790,6 +790,330 @@ async def test_async_embedding_callback_is_skipped_for_structural_ranking() -> N
         strategy="structural",
     )
     assert result.strategy.value == "structural"
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_batches_same_query_and_preserves_independent_results() -> None:
+    """Share one callback while preserving mixed requests with uneven candidate counts."""
+    callback_batches: list[tuple[str, list[str]]] = []
+
+    async def embed(
+        query: str,
+        passages: Sequence[str],
+    ) -> tuple[NDArray[np.float32], list[NDArray[np.float32]]]:
+        """Record the combined batch and return deterministic vectors.
+
+        Args:
+            query: Shared normalized retrieval query.
+            passages: Contextual candidate passages from every source.
+
+        Returns:
+            One query vector and one vector for each contextual passage.
+        """
+        callback_batches.append((query, list(passages)))
+        return _callback_vectors(query, passages)
+
+    async def reference_embed(
+        query: str,
+        passages: Sequence[str],
+    ) -> tuple[NDArray[np.float32], list[NDArray[np.float32]]]:
+        """Provide the deterministic vectors used for individual reference calls.
+
+        Args:
+            query: Normalized retrieval query.
+            passages: Contextual candidate passages from one source.
+
+        Returns:
+            One query vector and one vector for each contextual passage.
+        """
+        return _callback_vectors(query, passages)
+
+    inputs = [
+        TrimInput(
+            "other fact\n\ntarget fact one\n\nlast fact",
+            20,
+            unit="characters",
+            strategy="semantic",
+            query="target",
+        ),
+        TrimInput(
+            "target fact two\n\nlast fact",
+            15,
+            unit="characters",
+            strategy="hybrid",
+            query="target",
+        ),
+        TrimInput(
+            "other fact\n\nmiddle fact\n\ntarget fact three\n\nlast fact",
+            25,
+            unit="characters",
+            strategy="hybrid",
+            query="target",
+        ),
+    ]
+    reference = Trimmer(async_embedding_callback=reference_embed)
+    expected = await asyncio.gather(
+        *(
+            reference.atrim(
+                item.text,
+                item.limit,
+                unit=item.unit,
+                strategy=item.strategy,
+                query=item.query,
+                token_counter=item.token_counter,
+            )
+            for item in inputs
+        )
+    )
+
+    results = await Trimmer(async_embedding_callback=embed).atrim_many(inputs)
+
+    assert results == expected
+    assert [(query, len(passages)) for query, passages in callback_batches] == [("target", 9)]
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_deduplicates_exact_passages_when_requested() -> None:
+    """Embed repeated contextual passages once without changing trim results."""
+    callback_batches: list[list[str]] = []
+
+    async def embed(
+        query: str,
+        passages: Sequence[str],
+    ) -> tuple[NDArray[np.float32], list[NDArray[np.float32]]]:
+        """Record passage occurrences and return deterministic vectors.
+
+        Args:
+            query: Shared normalized retrieval query.
+            passages: Contextual candidate passages supplied for inference.
+
+        Returns:
+            One query vector and one vector for each supplied passage.
+        """
+        callback_batches.append(list(passages))
+        return _callback_vectors(query, passages)
+
+    source = "other fact\n\ntarget fact\n\nlast fact"
+    inputs = [
+        TrimInput(source, 20, unit="characters", strategy="semantic", query="target"),
+        TrimInput(source, 20, unit="characters", strategy="semantic", query="target"),
+    ]
+    trimmer = Trimmer(async_embedding_callback=embed)
+
+    ordinary_results = await trimmer.atrim_many(inputs)
+    deduplicated_results = await trimmer.atrim_many(inputs, deduplicate=True)
+
+    ordinary_passages, deduplicated_passages = callback_batches
+    assert deduplicated_passages == list(dict.fromkeys(ordinary_passages))
+    assert len(deduplicated_passages) < len(ordinary_passages)
+    assert deduplicated_results == ordinary_results
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_excludes_fitting_inputs_from_callback_batches() -> None:
+    """Leave an unchanged semantic input out of a shared embedding batch."""
+    callback_batches: list[list[str]] = []
+
+    async def embed(
+        query: str,
+        passages: Sequence[str],
+    ) -> tuple[NDArray[np.float32], list[NDArray[np.float32]]]:
+        """Capture non-fitting passages and return deterministic vectors.
+
+        Args:
+            query: Shared normalized retrieval query.
+            passages: Contextual candidate passages from oversized sources.
+
+        Returns:
+            One query vector and one vector for each contextual passage.
+        """
+        callback_batches.append(list(passages))
+        return _callback_vectors(query, passages)
+
+    results = await Trimmer(async_embedding_callback=embed).atrim_many(
+        [
+            TrimInput("short", 5, unit="characters", strategy="semantic", query="target"),
+            TrimInput(
+                "other fact\n\ntarget fact one\n\nlast fact",
+                20,
+                unit="characters",
+                strategy="semantic",
+                query="target",
+            ),
+            TrimInput(
+                "other fact\n\ntarget fact two\n\nlast fact",
+                20,
+                unit="characters",
+                strategy="semantic",
+                query="target",
+            ),
+        ]
+    )
+
+    assert results[0].text == "short"
+    assert len(callback_batches) == 1
+    assert all("short" not in passage for passage in callback_batches[0])
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_completes_nonsemantic_inputs_without_a_callback_batch() -> None:
+    """Keep structural batch requests on their established callback-free path."""
+
+    async def fail(_: str, __: Sequence[str]) -> tuple[list[float], list[list[float]]]:
+        """Fail if structural ranking unexpectedly invokes semantic inference."""
+        raise AssertionError("unexpected embedding callback")
+
+    results = await Trimmer(async_embedding_callback=fail).atrim_many(
+        [
+            TrimInput(
+                "First fact.\n\nMiddle material.\n\nLast fact.",
+                25,
+                unit="characters",
+                strategy="structural",
+            )
+        ]
+    )
+
+    assert results[0].strategy.value == "structural"
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_matches_individual_trims_without_async_callback() -> None:
+    """Reuse the ordinary asynchronous path when no batchable callback exists."""
+    trimmer = Trimmer()
+    inputs = [
+        TrimInput("First fact.\n\nMiddle material.\n\nLast fact.", 25, unit="characters"),
+        TrimInput("another source", 5, unit="characters"),
+    ]
+
+    results = await trimmer.atrim_many(inputs, deduplicate=True)
+    expected = [
+        trimmer.trim(
+            item.text,
+            item.limit,
+            unit=item.unit,
+            strategy=item.strategy,
+            query=item.query,
+            token_counter=item.token_counter,
+        )
+        for item in inputs
+    ]
+
+    assert results == expected
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_keeps_distinct_queries_in_separate_callbacks() -> None:
+    """Never pass one query as a passage for another query's batch."""
+    callback_queries: list[str] = []
+
+    async def embed(
+        query: str,
+        passages: Sequence[str],
+    ) -> tuple[NDArray[np.float32], list[NDArray[np.float32]]]:
+        """Record the query supplied to each separate callback.
+
+        Args:
+            query: One normalized query group.
+            passages: Contextual passages associated only with that query.
+
+        Returns:
+            One query vector and one vector for each contextual passage.
+        """
+        callback_queries.append(query)
+        return _callback_vectors(query, passages)
+
+    source = "other fact\n\ntarget fact\n\nlast fact"
+    await Trimmer(async_embedding_callback=embed).atrim_many(
+        [
+            TrimInput(source, 20, unit="characters", strategy="semantic", query="first"),
+            TrimInput(source, 20, unit="characters", strategy="semantic", query="second"),
+            TrimInput(source, 20, unit="characters", strategy="semantic", query=" first "),
+        ],
+        deduplicate=True,
+    )
+
+    assert callback_queries == ["first", "second"]
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_stages_callback_failures() -> None:
+    """Preserve the asynchronous callback error boundary for a batch."""
+
+    async def fail(_: str, __: Sequence[str]) -> tuple[list[float], list[list[float]]]:
+        """Simulate an unavailable asynchronous embedding service."""
+        raise RuntimeError("service unavailable")
+
+    with pytest.raises(SemanticBackendError, match="embedding callback inference") as captured:
+        await Trimmer(async_embedding_callback=fail).atrim_many(
+            [TrimInput("one\n\ntwo", 2, unit="characters", strategy="semantic", query="q")]
+        )
+    assert isinstance(captured.value.__cause__, RuntimeError)
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_validates_combined_callback_output() -> None:
+    """Reject a shared callback result missing one passage vector."""
+
+    async def omit_last(
+        query: str,
+        passages: Sequence[str],
+    ) -> tuple[NDArray[np.float32], list[NDArray[np.float32]]]:
+        """Return one fewer passage vector than the combined batch requires.
+
+        Args:
+            query: Shared normalized retrieval query.
+            passages: Combined contextual candidate passages.
+
+        Returns:
+            Valid query vector paired with an incomplete passage matrix.
+        """
+        query_vector, passage_vectors = _callback_vectors(query, passages)
+        return query_vector, passage_vectors[:-1]
+
+    source = "other fact\n\ntarget fact\n\nlast fact"
+    with pytest.raises(SemanticBackendError, match="embedding callback output"):
+        await Trimmer(async_embedding_callback=omit_last).atrim_many(
+            [
+                TrimInput(source, 20, unit="characters", strategy="semantic", query="target"),
+                TrimInput(source, 20, unit="characters", strategy="hybrid", query="target"),
+            ],
+            deduplicate=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_atrim_many_cancellation_propagates_to_shared_callback() -> None:
+    """Cancel the one shared callback without leaving its await behind."""
+    started = asyncio.Event()
+    stopped = asyncio.Event()
+
+    async def embed(
+        _: str,
+        __: Sequence[str],
+    ) -> tuple[list[float], list[list[float]]]:
+        """Wait for cancellation and expose callback cleanup."""
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            stopped.set()
+        return [1.0], [[1.0]]
+
+    source = "other block\n\ntarget block\n\nthird block"
+    task = asyncio.create_task(
+        Trimmer(async_embedding_callback=embed).atrim_many(
+            [
+                TrimInput(source, 20, unit="characters", strategy="semantic", query="target"),
+                TrimInput(source, 20, unit="characters", strategy="semantic", query="target"),
+            ]
+        )
+    )
+    await asyncio.wait_for(started.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    await asyncio.wait_for(stopped.wait(), timeout=1)
 
 
 @pytest.mark.asyncio

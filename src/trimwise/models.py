@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
@@ -104,6 +104,27 @@ class TrimConfig:
         if "model_name" in options:
             raise ValueError("model_name belongs in embedding_model")
         object.__setattr__(self, "fastembed_options", MappingProxyType(options))
+
+
+@dataclass(frozen=True, slots=True)
+class TrimInput:
+    """Collect one independent request for ``Trimmer.atrim_many()``.
+
+    Attributes:
+        text: Whole source string to trim.
+        limit: Maximum output size in ``unit``.
+        unit: Token, whitespace-word, or code-point character budget.
+        strategy: Structural, lexical, semantic, hybrid, or automatic ranking.
+        query: Task or question required by query-aware strategies.
+        token_counter: Optional synchronous token measurement callback.
+    """
+
+    text: str
+    limit: int
+    unit: BudgetUnit | str = BudgetUnit.TOKENS
+    strategy: Strategy | str = Strategy.AUTO
+    query: str | None = None
+    token_counter: Callable[[str], int] | None = None
 
 
 @dataclass(frozen=True, slots=True)
