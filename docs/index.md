@@ -24,6 +24,10 @@ source 3 ──> Trimwise ──> high-signal excerpt 3 ┘
                          + unchanged instructions
 ```
 
+`trim_context()` and `atrim_context()` can give those sources one shared evidence limit. More
+relevant sources may use more of the available space, while every input position remains present
+in the result. See [Many Sources, One Shared Limit](multi-source-context.md).
+
 Trimwise compacts text you already have. It does **not** search the web, retrieve documents, query
 an index, or replace a RAG system.
 
@@ -171,8 +175,8 @@ You can rely on:
   ranges were joined, but retained evidence takes priority when the marker cannot fit.
 - **Predictable fallback behavior.** Very small budgets prefer complete blocks, paragraphs,
   sentences, or lines before using the longest exact source prefix that fits.
-- **Synchronous and asynchronous APIs.** Use `trim()` in blocking code and `atrim()` when the event
-  loop must remain responsive.
+- **Synchronous and asynchronous APIs.** Use `trim()` or `trim_context()` in blocking code and
+  `atrim()` or `atrim_context()` when the event loop must remain responsive.
 
 Trimwise does not summarize, paraphrase, combine distant facts into a new sentence, or prove that
 the retained text contains every fact required by your task. At extreme compression ratios, a

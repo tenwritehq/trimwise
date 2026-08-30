@@ -128,6 +128,50 @@ class TrimInput:
 
 
 @dataclass(frozen=True, slots=True)
+class ContextSourceResult:
+    """Describe one input-aligned excerpt from a shared context budget.
+
+    Attributes:
+        source_index: Zero-based position of the corresponding input source.
+        text: Extractive output retained from that source.
+        input_count: Measured size of the original source.
+        output_count: Measured size of the returned source output.
+        trimmed: Whether the returned text differs from the original source.
+        spans: Ordered, nonoverlapping ranges retained from the original source.
+    """
+
+    source_index: int
+    text: str
+    input_count: int
+    output_count: int
+    trimmed: bool
+    spans: tuple[SourceSpan, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ContextTrimResult:
+    """Describe many source excerpts sharing one output limit.
+
+    Attributes:
+        sources: One result for every input source, in input order.
+        input_count: Sum of the independently measured input sizes.
+        output_count: Sum of the independently measured output sizes.
+        limit: Shared maximum output size.
+        unit: Unit used for all counts.
+        strategy: Concrete strategy used after resolving ``auto``.
+        trimmed: Whether any source output differs from its original source.
+    """
+
+    sources: tuple[ContextSourceResult, ...]
+    input_count: int
+    output_count: int
+    limit: int
+    unit: BudgetUnit
+    strategy: Strategy
+    trimmed: bool
+
+
+@dataclass(frozen=True, slots=True)
 class TrimResult:
     """Describe the resolved strategy and measured truncation result.
 

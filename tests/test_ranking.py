@@ -24,14 +24,14 @@ from trimwise.ranking import (
     rank_structural,
 )
 from trimwise.segmentation import Segment
-from trimwise.semantic import _SemanticVectors
-from trimwise.trimmer import (
+from trimwise.selection import (
     _fill_remaining,
     _fill_section_shares,
     _new_selection_state,
     _SelectionContext,
     _SelectionState,
 )
+from trimwise.semantic import _SemanticVectors
 
 
 def _segments(*texts: str) -> list[Segment]:
@@ -54,6 +54,35 @@ def _segments(*texts: str) -> list[Segment]:
 def _measurer() -> Measurer:
     """Create a character measurer with the default ranking encoding."""
     return Measurer(BudgetUnit.CHARACTERS, "o200k_base", None)
+
+
+def _selection_context(
+    source: str,
+    segments: list[Segment],
+    ranking: CandidateRanking,
+    limit: int,
+) -> _SelectionContext:
+    """Create one-source selection inputs for internal policy tests.
+
+    Args:
+        source: Synthetic original source.
+        segments: Source-backed candidates.
+        ranking: Candidate relevance and similarity behavior.
+        limit: Character output ceiling.
+
+    Returns:
+        Ordinary one-source selection context.
+    """
+    return _SelectionContext(
+        (source,),
+        segments,
+        tuple(0 for _ in segments),
+        ranking,
+        _measurer(),
+        limit,
+        "...",
+        0.7,
+    )
 
 
 def _semantic_vectors(*vectors: tuple[float, ...]) -> _SemanticVectors:
@@ -232,7 +261,7 @@ def test_mmr_similarity_is_updated_once_per_remaining_pair() -> None:
 
     segments = _segments("alpha", "beta", "gamma")
     ranking = CandidateRanking((1.0, 0.9, 0.8), (1.0, 0.9, 0.8), similarity)
-    context = _SelectionContext("alphabetagamma", segments, ranking, _measurer(), 20, "...", 0.7)
+    context = _selection_context("alphabetagamma", segments, ranking, 20)
     state = _new_selection_state(context)
     state.remaining.remove(0)
     state.track_mmr_selection(0)
@@ -267,7 +296,7 @@ def test_section_shares_skip_ranking_when_no_unit_fits(
     segments = _segments("long", "unit")
     segments[1] = Segment(1, 4, 8, "unit", "paragraph", 1, None)
     ranking = CandidateRanking((1.0, 1.0), (1.0, 1.0), lambda left, right: 0.0)
-    context = _SelectionContext("longunit", segments, ranking, _measurer(), 2, "...", 0.7)
+    context = _selection_context("longunit", segments, ranking, 2)
     state = _new_selection_state(context)
     monkeypatch.setattr(CandidateRanking, "next_index", reject_ranking)
     _fill_section_shares(state)
@@ -309,7 +338,7 @@ def test_global_fill_uses_linear_best_candidate_scan_when_candidates_fit(
 
     segments = _segments("a", "b", "c")
     ranking = CandidateRanking((1.0, 0.9, 0.8), (1.0, 0.9, 0.8), lambda left, right: 0.0)
-    context = _SelectionContext("abc", segments, ranking, _measurer(), 3, "...", 0.7)
+    context = _selection_context("abc", segments, ranking, 3)
     state = _new_selection_state(context)
     monkeypatch.setattr(CandidateRanking, "ordered_indexes", reject_sorting)
     _fill_remaining(state, accept)
@@ -347,7 +376,7 @@ def test_semantic_mmr_updates_similarities_without_scalar_lookups() -> None:
         (0.0, 1.0),
     )
     ranking = replace(rank_semantic(segments, vectors), similarity=reject_scalar_lookup)
-    context = _SelectionContext("", segments, ranking, _measurer(), 20, "...", 0.7)
+    context = _selection_context("", segments, ranking, 20)
     state = _new_selection_state(context)
     state.remaining.remove(0)
     state.track_mmr_selection(0)
