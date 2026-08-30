@@ -9,7 +9,7 @@ This page documents Trimwise **{{ trimwise_version }}** directly from its public
 Signatures, type annotations, and descriptions therefore stay aligned with the installed API.
 Expand **Source code** under any entry to inspect its implementation and source line numbers.
 
-Trimwise intentionally exports only the eight objects below. Internal segmentation, measurement,
+Trimwise intentionally exports only the documented objects below. Internal segmentation, measurement,
 ranking, semantic-adapter, and orchestration helpers are not part of the compatibility promise.
 
 ## Trimming
@@ -39,6 +39,13 @@ Every call returns an immutable [`TrimResult`][trimwise.TrimResult] containing t
 measured counts, resolved strategy, and trimming status.
 
 ::: trimwise.TrimResult
+
+The context methods return a [`ContextTrimResult`][trimwise.ContextTrimResult] containing one
+input-aligned [`ContextSourceResult`][trimwise.ContextSourceResult] per source.
+
+::: trimwise.ContextTrimResult
+
+::: trimwise.ContextSourceResult
 
 [`SourceSpan`][trimwise.SourceSpan] identifies one retained range in the original input.
 

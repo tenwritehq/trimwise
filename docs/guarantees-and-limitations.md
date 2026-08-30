@@ -28,6 +28,14 @@ headings, and affordable omission markers have been applied. It returns only whe
 result.output_count <= result.limit
 ```
 
+For `trim_context()` and `atrim_context()`, the ceiling applies to the sum of independently
+measured source outputs:
+
+```text
+result.output_count = sum(source.output_count for source in result.sources)
+result.output_count <= result.limit
+```
+
 The guarantee uses the requested measurement rule:
 
 - Tiktoken or your custom counter for token budgets.
@@ -48,6 +56,10 @@ This guarantee applies to `result.text`, not to the larger prompt around it. Ins
 labels, separators, examples, tool definitions, output schemas, and the model's answer all need
 their own context space.
 
+The same boundary applies to context results: caller-added labels and separators are not counted.
+Separately measured token strings can also tokenize differently after they are joined. Measure the
+completed prompt and reserve room when its whole-token ceiling must be exact.
+
 ### Input that already fits is returned exactly
 
 After argument validation and input measurement, Trimwise returns a fitting source without parsing
@@ -66,6 +78,9 @@ assert result.trimmed is False
 
 Spaces, tabs, line endings, and Markdown syntax remain unchanged on this path.
 For a nonempty unchanged input, `result.spans` contains one range from zero through `len(source)`.
+
+For context methods, this fast path applies when the sum of all source input counts fits. Every
+source is returned unchanged with its own full local span, and no embedding backend is invoked.
 
 ### Retained fragments come from the source
 
@@ -137,6 +152,10 @@ opt-in through an explicit semantic or hybrid strategy.
 Equal ranking outcomes break toward earlier source positions. With the same source, configuration,
 counter results, and semantic vectors, candidate selection and composition are deterministic.
 
+With several sources sharing one limit, equal outcomes also prefer earlier input sources. Stable
+behavior does not guarantee that every source contributes; a small limit may leave some
+input-aligned result rows empty.
+
 The qualification matters: an external callback, GPU provider, model service, or custom counter
 can itself be nondeterministic. Trimwise cannot make unstable backend outputs stable.
 
@@ -152,8 +171,8 @@ and ranking signals can be wrong.
 
 ### Async execution has defined cancellation boundaries
 
-`atrim()` moves synchronous work to worker threads. A native async embedding callback is awaited on
-the calling event loop.
+`atrim()` and `atrim_context()` move synchronous work to worker threads. A native async embedding
+callback is awaited on the calling event loop.
 
 - Cancellation propagates into a currently awaited async callback.
 - Cancellation stops waiting for worker-thread work.
@@ -297,6 +316,10 @@ The default multilingual FastEmbed model is approximately 220 MB. A cold call ma
 and initialization time; warm calls reuse the model held by that `Trimmer`. V1 does not cache
 candidate embeddings across trim calls.
 
+Context deduplication is exact-string and best effort. With `deduplicate=True`, matching passage
+strings share one embedding only within that operation. It does not fuzzy-match, remove duplicate
+source rows, persist vectors, reuse work across calls, or batch unrelated calls in the background.
+
 One `Trimmer` serializes its managed FastEmbed operations for model safety. Separate instances can
 infer independently at the cost of additional model memory. Caller callbacks are not serialized;
 the application owns their concurrency and rate limits.
@@ -360,7 +383,7 @@ Trimwise deliberately leaves several decisions with the application:
 | Responsibility | What the caller should do |
 | --- | --- |
 | Complete prompt budget | Reserve room for labels, instructions, examples, tools, and model output |
-| Source identity | Store document IDs, URLs, authors, timestamps, and access controls outside `TrimResult` |
+| Source identity | Store document IDs, URLs, authors, timestamps, and access controls outside Trimwise results; reconnect context rows with `source_index` |
 | Relevance evaluation | Test downstream answers on representative documents and queries |
 | Factual verification | Check claims against original sources when accuracy matters |
 | Contradiction handling | Preserve and compare conflicting evidence explicitly |
@@ -374,6 +397,8 @@ ranges are merged. Overlapping ranges are never returned because candidates do n
 Generated omission markers and separators have no span. Keep document identity alongside each
 input before trimming several sources.
 
+For a context result, each source row's spans index only the original string at its `source_index`.
+
 ## How to evaluate Trimwise for your application
 
 Unit tests can verify hard limits, determinism, source fidelity, and backend boundaries. They cannot
@@ -383,7 +408,7 @@ Evaluate with realistic:
 
 - Document lengths, structures, languages, and repetition patterns.
 - Queries containing exact identifiers and paraphrased concepts.
-- Compression ratios and per-source budget allocations.
+- Compression ratios and shared-budget behavior across different source mixes.
 - Contradictions, changed numbers, dates, negation, and rare critical details.
 - Cold and warm semantic calls.
 - Final LLM answers, not only ranking scores.
@@ -396,6 +421,7 @@ starting point; representative downstream evaluation decides whether they work f
 
 - Return to the [Trimwise overview](index.md).
 - Follow the [Getting Started guide](getting-started.md).
+- Trim multiple sources with [one shared limit](multi-source-context.md).
 - Compare ranking tradeoffs in [Choosing a Strategy](strategies.md).
 - Inspect the pipeline in [How Trimwise Works](how-it-works.md).
 - Configure backends in [Semantic Models and Async Usage](semantic-and-async.md).

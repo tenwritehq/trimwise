@@ -224,6 +224,28 @@ labels, separators, and instructions, and the model needs room to answer. Plan t
 choosing the per-source limit. Trimwise guarantees each excerpt's ceiling; your application decides
 how the excerpt ceilings fit inside the complete prompt or context window.
 
+That example gives every source its own 120-token limit. When the sources should instead compete
+for one allowance, call `trim_context()`:
+
+```python
+shared = trimmer.trim_context(
+    [source["text"] for source in sources],
+    limit=300,
+    query=task,
+)
+
+evidence = []
+for row in shared.sources:
+    if row.text:
+        label = sources[row.source_index]["label"]
+        evidence.append(f"## {label}\n\n{row.text}")
+```
+
+A more relevant source may use more room, and some source rows may be empty. The labels and
+separators added above are not part of the 300-token limit. Read
+[Many Sources, One Shared Limit](multi-source-context.md) for counts, spans, async use, and the
+difference from `atrim_many()`.
+
 Keep instructions outside the source text passed to Trimwise. The library is designed to reduce
 evidence, not to shorten system prompts, tool rules, output schemas, or other instructions that the
 model must follow exactly.
@@ -403,6 +425,7 @@ not factual truth.
 ## Continue exploring
 
 - Return to the [Trimwise overview](index.md).
+- Trim several sources with [one shared limit](multi-source-context.md).
 - Review the current [strategy guide](https://github.com/tenwritehq/trimwise#which-strategy-should-i-use).
 - Learn about [embedding callbacks and FastEmbed](https://github.com/tenwritehq/trimwise#semantic-models).
 - See the [public package on PyPI](https://pypi.org/project/trimwise/).

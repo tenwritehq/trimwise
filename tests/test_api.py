@@ -13,9 +13,11 @@ from trimwise import BudgetUnit, SourceSpan, Strategy, TrimConfig, Trimmer
 
 
 def test_public_exports_are_intentionally_small() -> None:
-    """Expose only the eight documented public objects."""
+    """Expose only the documented public objects."""
     assert trimwise.__all__ == [
         "BudgetUnit",
+        "ContextSourceResult",
+        "ContextTrimResult",
         "SemanticBackendError",
         "SourceSpan",
         "Strategy",

@@ -67,6 +67,11 @@ jobs:
       - run: wheel-test/bin/python -m pip check
       - run: >-
           wheel-test/bin/python -c
-          "import importlib.metadata, trimwise;
-          assert importlib.metadata.version('trimwise') == '0.3.0';
-          assert len(trimwise.__all__) == 8"
+          "import asyncio, importlib.metadata;
+          from trimwise import ContextSourceResult, ContextTrimResult, Trimmer;
+          assert importlib.metadata.version('trimwise') == '0.4.0';
+          sync_result = Trimmer().trim_context(['a'], 1, unit='characters');
+          async_result = asyncio.run(Trimmer().atrim_context(['a'], 1, unit='characters'));
+          assert isinstance(sync_result, ContextTrimResult);
+          assert isinstance(sync_result.sources[0], ContextSourceResult);
+          assert async_result == sync_result"

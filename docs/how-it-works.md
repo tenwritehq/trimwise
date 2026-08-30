@@ -37,6 +37,11 @@ Every strategy follows the same high-level path:
 The strategy changes ranking and selection behavior. Measurement, source fidelity, composition,
 fallback, and the final budget guarantee stay shared.
 
+The context methods follow the same stages for many sources under one limit. Each source is
+measured and mapped independently so headings, neighboring passages, spans, and original order do
+not cross source boundaries. Usefulness is then compared across the sources, and the final result
+keeps a separate output row for each input.
+
 ## Stage 1: validate and measure
 
 Trimwise resolves public arguments before doing document work:
@@ -58,6 +63,10 @@ The complete input is then measured in the requested unit:
 If `limit == 0`, Trimwise returns empty text after measuring the input. If the input count is at
 most the limit, it returns the original string exactly and stops before Markdown parsing, ranking,
 callback invocation, or FastEmbed loading.
+
+For `trim_context()` and `atrim_context()`, the fitting check uses the sum of the independently
+measured source inputs. An aggregate-fitting collection returns every source unchanged. If the sum
+is too large, sources compete even when each one would fit by itself.
 
 ```python
 from trimwise import Trimmer
@@ -173,6 +182,9 @@ small local window containing:
 Duplicate indexes are removed from the window. The candidate is intentionally repeated at the
 front when a larger window exists, preserving a stronger signal for words found directly in that
 candidate rather than only in a neighbor.
+
+With several sources, headings and neighboring passages come only from the same source as the
+passage being scored.
 
 For example, `It increased by 18%.` becomes easier to score when the ranking text also contains a
 heading such as `## Database latency` and the adjacent explanation. Selection still retains only
@@ -300,6 +312,12 @@ unused room; later global selection can use it elsewhere.
 This is why structural mode is not a 50/25/25 slice. Position provides orientation through anchors,
 while centrality, section coverage, similarity, and exact cost decide the rest.
 
+For a multi-source context, queryless selection first gives each source with usable passages one
+opportunity in input order. It tries a smaller complete passage from that source if the strongest
+one is too large, and includes that passage's heading only when affordable. Remaining room is then
+available to the strongest fitting material from any source. This policy is deterministic, but it
+does not guarantee an excerpt from every source or claim an optimal allocation.
+
 ### Query-aware selection path
 
 Lexical, semantic, and hybrid modes do not force opening or closing anchors. They first remove
@@ -346,6 +364,11 @@ Ranking order never becomes output order. For every proposed addition, Trimwise:
 
 This trial composition accounts for the actual cost of headings, separators, and markers instead
 of estimating candidate cost in isolation.
+
+For context results, Trimwise performs that reconstruction separately for each source and sums the
+complete output counts before accepting a change. Optional markers are tried in source input order
+after the retained content fits. A wholly omitted source receives an empty row, not a standalone
+marker.
 
 ### Leading, internal, and trailing gaps
 
@@ -443,6 +466,10 @@ candidates. Generated omission markers and minimal separators have no source spa
 The guarantee applies to `result.text`, not to the larger prompt assembled around it. Source labels,
 instructions, examples, tool schemas, separators, and model output still need their own context
 space.
+
+`ContextTrimResult` applies the same ceiling to the sum of its source outputs. Its aggregate counts
+equal the sums of the per-source counts, and every local span indexes only that source's original
+string. Formatting added later by the caller is outside this measurement.
 
 ## What source fidelity means
 

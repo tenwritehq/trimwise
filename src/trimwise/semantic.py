@@ -112,6 +112,47 @@ class _SemanticVectors:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class _PassageBatch:
+    """Map original passages to the exact strings sent to one backend call."""
+
+    passages: list[str]
+    rows: tuple[int, ...]
+
+
+def _prepare_passage_batch(passages: list[str], deduplicate: bool) -> _PassageBatch:
+    """Optionally collapse exact passage strings while preserving first-seen order.
+
+    Args:
+        passages: Contextual passage occurrences in candidate order.
+        deduplicate: Whether identical strings share one backend row.
+
+    Returns:
+        Backend passages and one-based row indexes for every original occurrence.
+    """
+    if not deduplicate:
+        return _PassageBatch(passages, tuple(range(1, len(passages) + 1)))
+    unique_passages = list(dict.fromkeys(passages))
+    row_by_passage = {passage: row for row, passage in enumerate(unique_passages, start=1)}
+    return _PassageBatch(unique_passages, tuple(row_by_passage[passage] for passage in passages))
+
+
+def _remap_semantic_vectors(
+    vectors: _SemanticVectors,
+    passage_rows: Sequence[int],
+) -> _SemanticVectors:
+    """Restore semantic passage multiplicity after an exact-string batch.
+
+    Args:
+        vectors: Normalized vectors returned for backend passages.
+        passage_rows: One-based backend row for every original passage occurrence.
+
+    Returns:
+        Query and passage vectors in original candidate order.
+    """
+    return _SemanticVectors(vectors.matrix[[0, *passage_rows]])
+
+
 def embed_with_callback(
     callback: EmbeddingCallback,
     query: str,

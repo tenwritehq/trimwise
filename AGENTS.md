@@ -113,13 +113,14 @@ Keep each responsibility in its existing file. Generated folders such as `dist/`
 
 - `docs/index.md`: introduces Trimwise and routes readers to the appropriate documentation.
 - `docs/getting-started.md`: covers installation, first trims, prompt assembly, and common choices.
+- `docs/multi-source-context.md`: explains many-source trimming under one shared output limit.
 - `docs/strategies.md`: explains automatic, structural, lexical, semantic, and hybrid behavior.
 - `docs/semantic-and-async.md`: covers embedding callbacks, FastEmbed, concurrency, and async use.
 - `docs/configuration-and-api.md`: documents configuration fields, call arguments, and results.
 - `docs/how-it-works.md`: describes segmentation, ranking, selection, composition, and fallback.
 - `docs/guarantees-and-limitations.md`: separates hard guarantees from heuristic behavior.
 - `docs/research-foundations.md`: maps published methods to the exact parts Trimwise implements.
-- `docs/api-reference.md`: generates the six-object public API reference from Python source.
+- `docs/api-reference.md`: generates the documented public API reference from Python source.
 - `docs/hooks.py`: reads the package version from `pyproject.toml` for MkDocs pages and titles.
 - `docs/requirements.txt`: pins the isolated documentation build dependencies.
 
@@ -132,7 +133,9 @@ Keep each responsibility in its existing file. Generated folders such as `dist/`
 
 ### Package source
 
-- `src/trimwise/__init__.py`: exposes the six supported public API names and nothing else.
+- `src/trimwise/__init__.py`: exposes the supported public API names and nothing else.
+- `src/trimwise/composition.py`: reconstructs exact source outputs, local spans, affordable omission
+  markers, and tiny-budget fallbacks.
 - `src/trimwise/measurement.py`: measures token, word, and character budgets and finds fitting
   prefixes.
 - `src/trimwise/models.py`: defines public enums, configuration, result values, and semantic
@@ -141,12 +144,12 @@ Keep each responsibility in its existing file. Generated folders such as `dist/`
   structural, BM25, semantic, hybrid, signal, cosine, and MMR ranking calculations.
 - `src/trimwise/segmentation.py`: splits Markdown into exact source-backed blocks and assigns
   section context.
+- `src/trimwise/selection.py`: owns ordinary and shared-budget candidate selection and MMR state.
 - `src/trimwise/semantic.py`: invokes caller-provided sync or async embedding callbacks, validates
   and normalizes all semantic vectors, lazily loads FastEmbed, serializes managed model use, and
   converts backend failures into stable package errors.
-- `src/trimwise/trimmer.py`: validates public calls, expands a sole oversized paragraph into
-  complete structural candidates, and orchestrates measurement, callback or FastEmbed ranking,
-  selection, omission markers, fallback splitting, and async execution boundaries.
+- `src/trimwise/trimmer.py`: validates public calls and orchestrates measurement, segmentation,
+  callback or FastEmbed ranking, result construction, and async execution boundaries.
 - `src/trimwise/py.typed`: tells type checkers that the installed package includes inline types.
 
 ### Tests
@@ -155,6 +158,8 @@ Keep each responsibility in its existing file. Generated folders such as `dist/`
   omission behavior, and source ordering.
 - `tests/test_async_semantic.py`: checks FastEmbed and caller callback precedence, vector validation,
   staged failures, model reuse, concurrency, async equivalence, and cancellation behavior.
+- `tests/test_context.py`: checks shared-budget validation, selection, composition, counts, and spans.
+- `tests/test_context_semantic.py`: checks context semantic batching, deduplication, and async use.
 - `tests/test_docstrings.py`: enforces Python docstrings and verifies that `py.typed` is packaged.
 - `tests/test_ranking.py`: checks BM25, centrality, semantic and hybrid fusion, signal scoring,
   similarity, normalization, and MMR diversity.

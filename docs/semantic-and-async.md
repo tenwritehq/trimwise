@@ -17,10 +17,10 @@ contract, reuse models, handle concurrency and cancellation, and diagnose failur
 
 | Your situation | Install | Configure | Call |
 | --- | --- | --- | --- |
-| You already have a blocking model or client | `trimwise` | `embedding_callback=` | `trim()` or `atrim()` |
-| You already have an async embedding client | `trimwise` | `async_embedding_callback=` | `atrim()` |
-| You want Trimwise to run a local CPU model | `trimwise[semantic]` | No callback | `trim()` or `atrim()` |
-| You want Trimwise to run a local NVIDIA GPU model | `trimwise[semantic-gpu]` | No callback | `trim()` or `atrim()` |
+| You already have a blocking model or client | `trimwise` | `embedding_callback=` | Sync or async single-source and context methods |
+| You already have an async embedding client | `trimwise` | `async_embedding_callback=` | `atrim()` or `atrim_context()` |
+| You want Trimwise to run a local CPU model | `trimwise[semantic]` | No callback | Sync or async single-source and context methods |
+| You want Trimwise to run a local NVIDIA GPU model | `trimwise[semantic-gpu]` | No callback | Sync or async single-source and context methods |
 
 With `pip`:
 
@@ -113,13 +113,14 @@ Adapt `encode_query()` and `encode_documents()` to the model or client you alrea
 callback takes precedence over FastEmbed even if a semantic extra is installed, so Trimwise does
 not import or download its default model on this path.
 
-A synchronous callback also works with `atrim()`. Trimwise runs the full synchronous pipeline,
-including your callback, in a worker thread so it does not block the event loop.
+A synchronous callback also works with `trim_context()`, `atrim()`, and `atrim_context()`. Async
+methods run the full synchronous path, including your callback, in a worker thread so it does not
+block the event loop.
 
 ## Bring your own asynchronous embeddings
 
 Use an asynchronous callback for a network client with a native async API. Configure it on the
-`Trimmer`, then call `atrim()` whenever semantic vectors are needed.
+`Trimmer`, then call `atrim()` or `atrim_context()` whenever semantic vectors are needed.
 
 ```python
 import asyncio
@@ -165,9 +166,9 @@ then moves vector normalization, ranking, selection, and final measurement back 
 This lets the embedding client use its existing async session, connection pool, and cancellation
 behavior.
 
-Calling `trim()` with only an async callback raises `TypeError` if semantic ranking is actually
-required. Use `atrim()` for that path. A fitting input can still return unchanged from `trim()`
-because no vectors are needed.
+Calling a synchronous method with only an async callback raises `TypeError` if semantic ranking is
+actually required. Use `atrim()` or `atrim_context()` for that path. A fitting input can still
+return unchanged because no vectors are needed.
 
 Configure either `embedding_callback` or `async_embedding_callback`, never both.
 
@@ -186,8 +187,8 @@ of these rules:
 | --- | --- |
 | One query vector | Every call represents one task or question |
 | Exactly one passage vector per supplied passage | Scores must map back to the correct source candidate |
-| Original passage order | Trimwise aligns vector row `i` with candidate `i` |
-| One nonempty dimension shared by every vector | Query and passage rows must fit one numeric matrix |
+| Original passage order | Trimwise aligns each returned embedding with the passage at the same position |
+| One nonempty dimension shared by every vector | Query and passage embeddings must have matching sizes |
 | Finite numeric values | NaN and infinity cannot produce dependable rankings |
 
 Zero vectors are accepted and remain zero after normalization, producing zero cosine similarity.
@@ -318,7 +319,7 @@ call still requires a nonblank query even when its text would fit.
 
 ## Sync and async behavior
 
-`trim()` and `atrim()` return the same `TrimResult` for the same deterministic backend and inputs.
+Sync and async counterparts return equal results for the same deterministic backend and inputs.
 Choose between them based on how your application schedules work:
 
 | Backend or strategy | `trim()` | `atrim()` |
@@ -367,13 +368,20 @@ by default because a callback may intentionally depend on batch position or comp
 not deduplicate similar text, compare raw source fragments without their ranking context, or retain
 vectors after the call.
 
+`trim_context()` and `atrim_context()` use one shared callback batch for all of their oversized
+semantic or hybrid source passages because those passages compete for one limit. Their
+`deduplicate=True` option uses the same exact-string, first-seen behavior with synchronous
+callbacks, async callbacks, and Trimwise-managed FastEmbed. Source rows remain distinct even when
+their passage strings share an embedding. See
+[Many Sources, One Shared Limit](multi-source-context.md) for the result and budget contract.
+
 For CPU-only structural or lexical work, async calls can overlap at the worker-thread level. For
 FastEmbed, calls sharing one `Trimmer` still wait on that instance's model lock. `atrim_many()`
 does not add cross-call background batching or make parallel CPU inference requests.
 
 ## Cancellation
 
-Cancellation behavior depends on what `atrim()` or `atrim_many()` is awaiting:
+Cancellation behavior depends on what `atrim()`, `atrim_context()`, or `atrim_many()` is awaiting:
 
 - **Asynchronous embedding callback:** cancellation propagates into the callback. Its `finally`
   blocks and normal async cleanup can run.
@@ -448,7 +456,7 @@ compression ratios.
 - Reuse an embedding model or client rather than recreating it inside every callback call.
 - Return exactly one passage vector per supplied string and preserve passage order.
 - Keep vector dimensions equal and values finite.
-- Use `atrim()` for native async clients.
+- Use `atrim()` or `atrim_context()` for native async clients.
 - Add callback-side rate limits, retries, timeouts, caching, and synchronization when needed.
 - Reuse one `Trimmer` for managed FastEmbed unless measured throughput justifies extra model memory.
 - Separate cold model download and initialization time from warm inference when benchmarking.
