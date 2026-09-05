@@ -64,9 +64,10 @@ If `limit == 0`, Trimwise returns empty text after measuring the input. If the i
 most the limit, it returns the original string exactly and stops before Markdown parsing, ranking,
 callback invocation, or FastEmbed loading.
 
-For `trim_context()` and `atrim_context()`, the fitting check uses the sum of the independently
-measured source inputs. An aggregate-fitting collection returns every source unchanged. If the sum
-is too large, sources compete even when each one would fit by itself.
+For plain string context calls, the fitting check uses the sum of independently measured source
+inputs. When prefixes or a separator are supplied, it instead measures the complete rendered
+context. A fitting collection returns every source unchanged; otherwise sources compete even when
+each evidence string would fit by itself.
 
 ```python
 from trimwise import Trimmer
@@ -359,18 +360,21 @@ Ranking order never becomes output order. For every proposed addition, Trimwise:
 1. Sorts all selected candidates by their original source position.
 2. Inserts exact whitespace for untouched gaps or minimal separators for omitted nonblank gaps.
 3. Composes the retained fragments without optional omission markers.
-4. Measures that complete proposal.
-5. Rejects the addition if retained content and required separators exceed the limit.
-6. Otherwise, tries optional omission markers one gap at a time in source-gap order.
-7. Carries the retained original-input ranges into the final result.
+4. For a rendered context, adds prefixes to contributing rows and joins them with the caller's
+   separator.
+5. Measures that complete proposal.
+6. Rejects the addition if it exceeds the limit.
+7. Otherwise, tries optional omission markers one gap at a time in source-gap order.
+8. Carries the retained original-input ranges into the final result.
 
 This trial composition accounts for the actual cost of headings, separators, and markers instead
 of estimating candidate cost in isolation.
 
-For context results, Trimwise performs that reconstruction separately for each source and sums the
-complete output counts before accepting a change. Optional markers are tried in source input order
-after the retained content fits. A wholly omitted source receives an empty row, not a standalone
-marker.
+For context results, Trimwise reconstructs each source separately. Plain string calls retain the
+sum-of-row measurement. Rendered calls remeasure the one final string, so token or custom counters
+see the real boundaries between prefix, evidence, and separator. Optional markers are tried in
+source input order after the retained content fits. A wholly omitted source receives neither a
+standalone marker nor a prefix.
 
 ### Leading, internal, and trailing gaps
 
@@ -467,13 +471,13 @@ Span offsets follow Python string slicing: starts are inclusive and ends are exc
 source-backed ranges are merged; overlapping ranges cannot arise from the nonoverlapping source
 candidates. Generated omission markers and minimal separators have no source span.
 
-The guarantee applies to `result.text`, not to the larger prompt assembled around it. Source labels,
-instructions, examples, tool schemas, separators, and model output still need their own context
-space.
+The `TrimResult` guarantee applies to its `result.text`, not to the larger prompt assembled around
+it. Instructions, examples, tool schemas, and model output still need their own context space.
 
-`ContextTrimResult` applies the same ceiling to the sum of its source outputs. Its aggregate counts
-equal the sums of the per-source counts, and every local span indexes only that source's original
-string. Formatting added later by the caller is outside this measurement.
+For `ContextTrimResult`, plain string calls without an explicit separator keep the sum-of-source
+ceiling and return `text=None`. Calls with a `ContextSource` or separator return a fully measured
+`text` containing the active prefixes and separators. Every local span still indexes only its
+source's original evidence. Formatting added later by the caller is outside this measurement.
 
 ## What source fidelity means
 

@@ -128,6 +128,19 @@ class TrimInput:
 
 
 @dataclass(frozen=True, slots=True)
+class ContextSource:
+    """Pair source evidence with an output-only prefix.
+
+    Attributes:
+        text: Evidence that may be segmented, ranked, and returned with source spans.
+        prefix: Opaque caller text emitted only when this source contributes evidence.
+    """
+
+    text: str
+    prefix: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class ContextSourceResult:
     """Describe one input-aligned excerpt from a shared context budget.
 
@@ -155,11 +168,12 @@ class ContextTrimResult:
     Attributes:
         sources: One result for every input source, in input order.
         input_count: Sum of the independently measured input sizes.
-        output_count: Sum of the independently measured output sizes.
+        output_count: Measured rendered size, or the legacy sum of source outputs.
         limit: Shared maximum output size.
         unit: Unit used for all counts.
         strategy: Concrete strategy used after resolving ``auto``.
         trimmed: Whether any source output differs from its original source.
+        text: Complete rendered context, or ``None`` for legacy row-only calls.
     """
 
     sources: tuple[ContextSourceResult, ...]
@@ -169,6 +183,7 @@ class ContextTrimResult:
     unit: BudgetUnit
     strategy: Strategy
     trimmed: bool
+    text: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

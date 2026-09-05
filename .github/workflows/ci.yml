@@ -68,10 +68,12 @@ jobs:
       - run: >-
           wheel-test/bin/python -c
           "import asyncio, importlib.metadata;
-          from trimwise import ContextSourceResult, ContextTrimResult, Trimmer;
-          assert importlib.metadata.version('trimwise') == '0.4.1';
-          sync_result = Trimmer().trim_context(['a'], 1, unit='characters');
-          async_result = asyncio.run(Trimmer().atrim_context(['a'], 1, unit='characters'));
+          from trimwise import ContextSource, ContextSourceResult, ContextTrimResult, Trimmer;
+          assert importlib.metadata.version('trimwise') == '0.5.0';
+          sources = [ContextSource('a', 'Source: A\n')];
+          sync_result = Trimmer().trim_context(sources, 11, unit='characters');
+          async_result = asyncio.run(Trimmer().atrim_context(sources, 11, unit='characters'));
           assert isinstance(sync_result, ContextTrimResult);
           assert isinstance(sync_result.sources[0], ContextSourceResult);
-          assert async_result == sync_result"
+          assert async_result == sync_result;
+          assert sync_result.text == 'Source: A\na'"

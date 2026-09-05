@@ -11,7 +11,9 @@ from trimwise.composition import (
     _complete_unit_endpoints,
     _compose,
     _ComposedOutput,
-    _output_count,
+    _context_output_count,
+    _ContextRendering,
+    _fallback_candidate_output,
 )
 from trimwise.measurement import Measurer
 from trimwise.models import Strategy
@@ -31,6 +33,7 @@ class _SelectionContext:
     limit: int
     marker: str
     mmr_lambda: float
+    rendering: _ContextRendering | None = None
 
 
 @dataclass(slots=True)
@@ -189,14 +192,16 @@ def _select_query_aware(
     return state.output if state.selected else None
 
 
-def _oversized_query_fallback_index(context: _SelectionContext) -> int | None:
-    """Find a strongest oversized candidate that should precede weaker sources.
+def _oversized_query_fallback(
+    context: _SelectionContext,
+) -> tuple[_ComposedOutput, ...] | None:
+    """Build an affordable strongest-candidate fallback before weaker sources.
 
     Args:
         context: Multi-source query-aware selection inputs.
 
     Returns:
-        Strongest eligible candidate when it needs fallback, otherwise ``None``.
+        Affordable strongest-candidate fallback, otherwise ``None``.
     """
     if len(set(context.source_indexes)) < 2:
         return None
@@ -208,7 +213,12 @@ def _oversized_query_fallback_index(context: _SelectionContext) -> int | None:
         context.ranking.new_maximum_similarities(),
         context.mmr_lambda,
     )
-    return index if _compose(context, {index}) is None else None
+    if _compose(context, {index}) is not None:
+        return None
+    output = _fallback_candidate_output(context, index)
+    if context.rendering is None or any(source.text for source in output):
+        return output
+    return None
 
 
 def _query_aware_indexes(context: _SelectionContext) -> set[int]:
@@ -283,7 +293,11 @@ def _fill_section_shares(state: _SelectionState) -> None:
     sections = sorted({segment.section for segment in state.context.segments})
     if not sections:
         return
-    available = state.context.limit - _output_count(state.context.measurer, state.output)
+    available = state.context.limit - _context_output_count(
+        state.context.measurer,
+        state.context.rendering,
+        state.output,
+    )
     share = max(0, available // len(sections))
     costs = {
         index: state.context.measurer.count(state.context.segments[index].text)

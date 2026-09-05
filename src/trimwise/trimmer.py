@@ -9,13 +9,16 @@ from typing import cast
 
 from trimwise.composition import (
     _ComposedOutput,
-    _fallback_candidate_output,
+    _context_output_count,
+    _ContextRendering,
     _fallback_output,
+    _render_context,
     _text_count,
 )
 from trimwise.measurement import Measurer, TokenCounter
 from trimwise.models import (
     BudgetUnit,
+    ContextSource,
     ContextSourceResult,
     ContextTrimResult,
     SourceSpan,
@@ -35,7 +38,7 @@ from trimwise.ranking import (
 from trimwise.segmentation import Segment, segment_text
 from trimwise.selection import (
     _expand_structural_plaintext,
-    _oversized_query_fallback_index,
+    _oversized_query_fallback,
     _prepare_context_candidates,
     _select_query_aware,
     _select_structural,
@@ -91,6 +94,7 @@ class _ContextRequest:
     query: str | None
     token_counter: TokenCounter | None
     deduplicate: bool
+    rendering: _ContextRendering | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +108,7 @@ class _ContextArguments:
     query: str | None
     token_counter: TokenCounter | None
     deduplicate: bool
+    rendering: _ContextRendering | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,7 +254,7 @@ class Trimmer:
 
     def trim_context(
         self,
-        sources: Sequence[str],
+        sources: Sequence[str | ContextSource],
         limit: int,
         *,
         unit: BudgetUnit | str = BudgetUnit.TOKENS,
@@ -257,27 +262,30 @@ class Trimmer:
         query: str | None = None,
         token_counter: Callable[[str], int] | None = None,
         deduplicate: bool = False,
+        separator: str | None = None,
     ) -> ContextTrimResult:
         """Trim many distinct sources under one shared output limit.
 
         Args:
-            sources: Source strings whose excerpts share the requested limit.
-            limit: Maximum summed output size in ``unit``.
+            sources: Source strings or prefixed context sources sharing the limit.
+            limit: Maximum evidence or rendered-context size in ``unit``.
             unit: Token, whitespace-word, or code-point character budget.
             strategy: Structural, lexical, semantic, hybrid, or automatic ranking.
             query: Task or question required by query-aware strategies.
             token_counter: Optional synchronous token measurement callback.
             deduplicate: Whether identical contextual passages share one embedding.
+            separator: Exact output text placed between contributing sources. Supplying
+                it enables complete rendering even when every source is a string.
 
         Returns:
-            Input-aligned excerpts and aggregate measurements.
+            Input-aligned excerpts, aggregate measurements, and optional rendered text.
 
         Raises:
             TypeError: If an argument is invalid or only an async embedder is available.
             ValueError: If an argument value or strategy/query combination is invalid.
             SemanticBackendError: If an explicitly requested semantic backend fails.
         """
-        source_snapshot = _snapshot_sources(sources)
+        source_snapshot, rendering = _snapshot_sources(sources, separator)
         _validate_deduplicate(deduplicate)
         arguments = _ContextArguments(
             source_snapshot,
@@ -287,12 +295,13 @@ class Trimmer:
             query,
             token_counter,
             deduplicate,
+            rendering,
         )
         return self._trim_context(arguments)
 
     async def atrim_context(
         self,
-        sources: Sequence[str],
+        sources: Sequence[str | ContextSource],
         limit: int,
         *,
         unit: BudgetUnit | str = BudgetUnit.TOKENS,
@@ -300,6 +309,7 @@ class Trimmer:
         query: str | None = None,
         token_counter: Callable[[str], int] | None = None,
         deduplicate: bool = False,
+        separator: str | None = None,
     ) -> ContextTrimResult:
         """Trim many sources asynchronously under one shared output limit.
 
@@ -307,23 +317,25 @@ class Trimmer:
         Cancellation propagates to that callback, but cannot stop worker work already running.
 
         Args:
-            sources: Source strings whose excerpts share the requested limit.
-            limit: Maximum summed output size in ``unit``.
+            sources: Source strings or prefixed context sources sharing the limit.
+            limit: Maximum evidence or rendered-context size in ``unit``.
             unit: Token, whitespace-word, or code-point character budget.
             strategy: Structural, lexical, semantic, hybrid, or automatic ranking.
             query: Task or question required by query-aware strategies.
             token_counter: Optional synchronous token measurement callback.
             deduplicate: Whether identical contextual passages share one embedding.
+            separator: Exact output text placed between contributing sources. Supplying
+                it enables complete rendering even when every source is a string.
 
         Returns:
-            Input-aligned excerpts and aggregate measurements.
+            Input-aligned excerpts, aggregate measurements, and optional rendered text.
 
         Raises:
             TypeError: If an argument has an unsupported type.
             ValueError: If an argument value or strategy/query combination is invalid.
             SemanticBackendError: If an explicitly requested semantic backend fails.
         """
-        source_snapshot = _snapshot_sources(sources)
+        source_snapshot, rendering = _snapshot_sources(sources, separator)
         _validate_deduplicate(deduplicate)
         arguments = _ContextArguments(
             source_snapshot,
@@ -333,6 +345,7 @@ class Trimmer:
             query,
             token_counter,
             deduplicate,
+            rendering,
         )
         callback = self._async_embedding_callback
         if callback is None:
@@ -562,6 +575,7 @@ class Trimmer:
             normalized_query,
             arguments.token_counter,
             arguments.deduplicate,
+            arguments.rendering,
         )
         _validate_context_request(request)
         measurer = Measurer(
@@ -574,11 +588,11 @@ class Trimmer:
         empty_outputs = tuple(_ComposedOutput("", ()) for _ in arguments.sources)
         if arguments.limit == 0:
             return _context_result(prepared, empty_outputs)
-        if sum(input_counts) <= arguments.limit:
-            outputs = tuple(
-                _ComposedOutput(source, (SourceSpan(0, len(source)),) if source else ())
-                for source in arguments.sources
-            )
+        outputs = tuple(
+            _ComposedOutput(source, (SourceSpan(0, len(source)),) if source else ())
+            for source in arguments.sources
+        )
+        if _context_output_count(measurer, request.rendering, outputs) <= arguments.limit:
             return _context_result(prepared, outputs)
 
         segments, source_indexes = _prepare_context_candidates(
@@ -781,19 +795,16 @@ class Trimmer:
             request.limit,
             self.config.omission_marker,
             self.config.mmr_lambda,
+            request.rendering,
         )
-        fallback_index = None
         if request.strategy is Strategy.STRUCTURAL:
             outputs = _select_structural(context)
         else:
-            fallback_index = _oversized_query_fallback_index(context)
-            outputs = None if fallback_index is not None else _select_query_aware(context)
+            outputs = _oversized_query_fallback(context)
+            if outputs is None:
+                outputs = _select_query_aware(context)
         if outputs is None:
-            outputs = (
-                _fallback_output(context)
-                if fallback_index is None
-                else _fallback_candidate_output(context, fallback_index)
-            )
+            outputs = _fallback_output(context)
         return _context_result(prepared, outputs)
 
 
@@ -865,24 +876,44 @@ def _batch_arguments(inputs: Sequence[TrimInput]) -> list[_TrimArguments]:
     return arguments
 
 
-def _snapshot_sources(sources: Sequence[str]) -> tuple[str, ...]:
+def _snapshot_sources(
+    sources: Sequence[str | ContextSource],
+    separator: str | None,
+) -> tuple[tuple[str, ...], _ContextRendering | None]:
     """Validate and snapshot the explicit multi-source collection contract.
 
     Args:
         sources: Public source collection.
+        separator: Optional exact text between contributing source outputs.
 
     Returns:
-        Stable input-order source tuple.
+        Stable evidence strings and optional wrapper-aware rendering settings.
 
     Raises:
-        TypeError: If the value is not a non-string sequence of strings.
+        TypeError: If a source, prefix, or separator has an unsupported type.
     """
     if isinstance(sources, str) or not isinstance(sources, Sequence):
-        raise TypeError("sources must be a sequence of strings")
+        raise TypeError("sources must be a sequence of strings or ContextSource values")
+    if separator is not None and not isinstance(separator, str):
+        raise TypeError("separator must be a string or None")
     snapshot = tuple(sources)
-    if any(not isinstance(source, str) for source in snapshot):
-        raise TypeError("sources must contain only strings")
-    return snapshot
+    texts: list[str] = []
+    prefixes: list[str] = []
+    rendered = separator is not None
+    for source in snapshot:
+        if isinstance(source, str):
+            texts.append(source)
+            prefixes.append("")
+            continue
+        if not isinstance(source, ContextSource):
+            raise TypeError("sources must contain only strings or ContextSource values")
+        if not isinstance(source.text, str) or not isinstance(source.prefix, str):
+            raise TypeError("ContextSource text and prefix must be strings")
+        texts.append(source.text)
+        prefixes.append(source.prefix)
+        rendered = True
+    rendering = _ContextRendering(tuple(prefixes), separator or "") if rendered else None
+    return tuple(texts), rendering
 
 
 def _validate_deduplicate(deduplicate: bool) -> None:
@@ -1061,7 +1092,7 @@ def _context_result(
     prepared: _PreparedContext,
     outputs: tuple[_ComposedOutput, ...],
 ) -> ContextTrimResult:
-    """Measure input-aligned outputs and enforce their summed hard limit.
+    """Measure input-aligned outputs and enforce their aggregate hard limit.
 
     Args:
         prepared: Validated request, source counts, and shared measurer.
@@ -1087,7 +1118,11 @@ def _context_result(
         )
         for source_index, output in enumerate(outputs)
     )
-    output_count = sum(source.output_count for source in source_results)
+    output_count = _context_output_count(
+        prepared.measurer,
+        request.rendering,
+        outputs,
+    )
     if output_count > request.limit:
         raise RuntimeError("internal composition exceeded the requested limit")
     return ContextTrimResult(
@@ -1098,4 +1133,5 @@ def _context_result(
         request.unit,
         request.strategy,
         any(source.trimmed for source in source_results),
+        _render_context(request.rendering, outputs) if request.rendering is not None else None,
     )

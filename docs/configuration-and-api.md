@@ -35,6 +35,7 @@ Import supported objects directly from `trimwise`:
 ```python
 from trimwise import (
     BudgetUnit,
+    ContextSource,
     ContextSourceResult,
     ContextTrimResult,
     SemanticBackendError,
@@ -55,6 +56,7 @@ These are the package's documented exports:
 | `TrimConfig` | Stores immutable reusable configuration |
 | `TrimInput` | Describes one independent request for asynchronous batch trimming |
 | `TrimResult` | Reports the excerpt, measurements, resolved strategy, and whether text changed |
+| `ContextSource` | Pairs evidence with an optional output-only prefix |
 | `ContextSourceResult` | Reports one input-aligned source excerpt and its local spans |
 | `ContextTrimResult` | Reports all source excerpts and their shared aggregate measurements |
 | `SourceSpan` | Identifies one retained range in the original input string |
@@ -255,11 +257,11 @@ a boolean.
 
 ## `trim_context()` and `atrim_context()`
 
-Use the context methods when many source strings should share one output limit:
+Use the context methods when many sources should share one output limit:
 
 ```text
 trim_context(
-    sources: Sequence[str],
+    sources: Sequence[str | ContextSource],
     limit: int,
     *,
     unit: BudgetUnit | str = BudgetUnit.TOKENS,
@@ -267,19 +269,22 @@ trim_context(
     query: str | None = None,
     token_counter: Callable[[str], int] | None = None,
     deduplicate: bool = False,
+    separator: str | None = None,
 ) -> ContextTrimResult
 ```
 
 `atrim_context()` accepts the same arguments and returns the same result type asynchronously.
-`sources` must be a sequence of strings, not one bare string or an arbitrary iterable. The result
-contains one `ContextSourceResult` per input position. A source may receive an empty excerpt, but
-its row and `source_index` remain present.
+`sources` must be a sequence of strings or `ContextSource` values, not one bare string or an
+arbitrary iterable. `ContextSource(text, prefix="...")` attaches exact output text that is emitted
+only if that source contributes evidence. The result contains one `ContextSourceResult` per input
+position. A source may receive an empty excerpt, but its row and `source_index` remain present.
 
-Source input and output strings are measured independently. Their counts sum to the aggregate
-counts, and the aggregate output cannot exceed the shared limit. Caller-added labels, URLs,
-instructions, and separators are not counted. See
-[Many Sources, One Shared Limit](multi-source-context.md) for prompt assembly and token-counting
-guidance.
+Supplying any `ContextSource` or an explicit `separator` returns the complete rendering in
+`result.text`. Its aggregate `output_count` measures prefixes, evidence, separators, and omission
+text together and cannot exceed the shared limit. Prefixes and separators never affect ranking,
+embedding input, or source spans. With plain strings and no separator, `result.text` remains `None`
+and the original sum-of-row-counts behavior is preserved. See
+[Many Sources, One Shared Limit](multi-source-context.md) for examples and exact counting rules.
 
 `deduplicate=True` is a best-effort embedding option. It sends each exact repeated contextual
 passage once during the operation and maps the vector back to every occurrence. It does not remove
@@ -562,14 +567,16 @@ The context methods return a frozen, slotted `ContextTrimResult`:
 | --- | --- |
 | `sources` | Input-aligned tuple of `ContextSourceResult` values |
 | `input_count` | Sum of all independently measured source inputs |
-| `output_count` | Sum of all independently measured source outputs |
+| `output_count` | Complete rendered size, or the legacy sum of source outputs |
 | `limit` and `unit` | Shared output ceiling and measurement rule |
 | `strategy` | Concrete strategy after resolving `auto` |
 | `trimmed` | Whether any source output differs from its input |
+| `text` | Complete rendered context, or `None` for plain-string calls without a separator |
 
 Each source result contains `source_index`, `text`, `input_count`, `output_count`, `trimmed`, and
 local `spans`. Empty or wholly omitted sources keep their row with empty text, zero output count,
-and no spans. Keep caller metadata outside the result and reconnect it with `source_index`.
+and no spans. Prefixes and separators have no spans. Keep non-rendered caller metadata outside the
+result and reconnect it with `source_index`.
 
 ## `Strategy`
 

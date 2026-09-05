@@ -26,6 +26,13 @@ duplicate contextual passages once per normalized-query callback batch.
 
 ::: trimwise.TrimInput
 
+## Shared-context inputs
+
+Use [`ContextSource`][trimwise.ContextSource] when a source needs an output prefix that counts
+toward the same shared limit as its retained evidence.
+
+::: trimwise.ContextSource
+
 ## Configuration
 
 Use [`TrimConfig`][trimwise.TrimConfig] to configure token encoding, managed embeddings, MMR,
@@ -41,7 +48,8 @@ measured counts, resolved strategy, and trimming status.
 ::: trimwise.TrimResult
 
 The context methods return a [`ContextTrimResult`][trimwise.ContextTrimResult] containing one
-input-aligned [`ContextSourceResult`][trimwise.ContextSourceResult] per source.
+input-aligned [`ContextSourceResult`][trimwise.ContextSourceResult] per source and, for rendered
+calls, the complete prompt-ready text.
 
 ::: trimwise.ContextTrimResult
 

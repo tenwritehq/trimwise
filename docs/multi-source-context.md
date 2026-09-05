@@ -1,6 +1,6 @@
 ---
 title: Trim Many Sources with One Shared Limit
-description: Let evidence from several sources compete for one Trimwise token, word, or character budget while keeping source identity and local spans.
+description: Let evidence and caller-supplied source labels from several inputs compete for one measured token, word, or character budget.
 ---
 
 # Many Sources, One Shared Limit
@@ -10,14 +10,15 @@ all of their passages together, so a source with stronger evidence can use more 
 space. The result still contains one entry per input source, in the same order.
 
 This is useful after retrieval, search, or tool calls have already chosen the sources. Trimwise does
-not retrieve documents or copy your labels and metadata; it reduces the source strings you supply.
+not retrieve documents or define a metadata format. You can provide an exact output prefix for each
+source when labels or URLs must count toward the same limit as the evidence.
 
 ## A runnable core-install example
 
 Lexical selection needs no embedding model or optional dependency:
 
 ```python
-from trimwise import Trimmer
+from trimwise import ContextSource, Trimmer
 
 question = "Which retry loop ignored backoff settings, and when did service recover?"
 records = [
@@ -38,25 +39,34 @@ records = [
 ]
 
 result = Trimmer().trim_context(
-    [record["text"] for record in records],
-    limit=18,
+    [
+        ContextSource(
+            text=record["text"],
+            prefix=f"Source: {record['url']}\n",
+        )
+        for record in records
+    ],
+    limit=30,
     unit="words",
     strategy="lexical",
     query=question,
+    separator="\n\n",
 )
 
-for source in result.sources:
-    record = records[source.source_index]
-    print(record["url"])
-    print(source.text or "(no excerpt fit)")
+print(result.text)
 
-assert result.output_count == sum(source.output_count for source in result.sources)
+assert result.text is not None
+assert len(result.text.split()) == result.output_count
 assert result.output_count <= result.limit
 ```
 
-`source_index` is the zero-based position of the original string. Use it to reconnect each excerpt
-to caller-owned URLs, filenames, permissions, timestamps, or other metadata. Trimwise deliberately
-does not copy or transform that information.
+`ContextSource.text` is evidence. Its `prefix` is copied exactly before that source's returned
+evidence, but only when the source contributes a nonempty excerpt. Prefixes do not influence which
+evidence wins and are never included in source spans. The separator is copied only between
+contributing sources.
+
+`source_index` is the zero-based input position. Use it to reconnect each result row to caller-owned
+filenames, permissions, timestamps, or other metadata that does not belong in the rendered text.
 
 Some entries may contain `text=""`. This can happen when the shared limit is too small or other
 sources have stronger evidence. The empty row remains present so indexes never shift.
@@ -72,24 +82,45 @@ sources have stronger evidence. The empty row remains present so indexes never s
 Use `atrim_many()` when every input has already been assigned its own allowance. Use the context
 methods when passages should compete for the same allowance.
 
-## Counts and prompt assembly
+## Choose what the limit covers
 
-Each source string is measured independently with the selected unit and optional custom counter:
+### Evidence-only results
+
+Passing only strings and omitting `separator` preserves the original row-oriented behavior:
 
 ```text
 result.input_count  = sum(source.input_count  for source in result.sources)
 result.output_count = sum(source.output_count for source in result.sources)
 result.output_count <= result.limit
+result.text is None
 ```
 
-The shared limit covers only the strings in `source.text`. It does not cover labels, URLs,
-caller-added headings, instructions, separators, examples, tool definitions, an output schema, or
-the model's answer.
-Reserve room for those parts before choosing the limit.
+Use this mode when your application will assemble and measure the final prompt itself. Any labels
+or separators added later are outside Trimwise's limit.
 
-Tokenizers can also count separately measured strings differently after they are joined. If the
-completed prompt needs an exact token ceiling, assemble it, measure it with the target model's
-tokenizer, and leave a safety margin or trim again with room reserved for prompt formatting.
+### Prompt-ready context
+
+Passing at least one `ContextSource`, or supplying `separator` explicitly, enables complete
+rendering. In this mode:
+
+```text
+result.input_count = sum(source.input_count for source in result.sources)
+measure(result.text) = result.output_count
+result.output_count <= result.limit
+```
+
+`input_count` still measures evidence only. Each source row's `output_count` still measures only
+that row's returned evidence and omission markers. The aggregate `output_count` measures the final
+`result.text`, including emitted prefixes and separators, so it need not equal the sum of row
+counts. A plain string can be mixed with `ContextSource`; it simply has no prefix.
+
+Instructions, examples, tool definitions, an output schema, a fixed prompt header, and the model's
+answer are still outside this limit. Reserve room for those surrounding parts.
+
+Trimwise remeasures the complete rendered string because token counts are not always additive at
+text boundaries. If the entire prompt needs an exact token ceiling, use the target model's tokenizer
+as `token_counter`, reserve room for everything outside `result.text`, and measure the completed
+prompt as a final application-level check.
 
 ## Result fields
 
@@ -99,10 +130,11 @@ tokenizer, and leave a safety margin or trim again with room reserved for prompt
 | --- | --- |
 | `sources` | One `ContextSourceResult` per input source, in input order |
 | `input_count` | Sum of independently measured source inputs |
-| `output_count` | Sum of independently measured source outputs |
+| `output_count` | Complete rendered size in rendering mode; otherwise the sum of source outputs |
 | `limit` and `unit` | Shared ceiling and its measurement rule |
 | `strategy` | Concrete strategy after resolving `auto` |
 | `trimmed` | Whether any source output differs from its input |
+| `text` | Prompt-ready rendered context, or `None` for evidence-only string calls |
 
 Each `ContextSourceResult` contains `source_index`, `text`, its own counts, `trimmed`, and local
 `spans`. A span always indexes the corresponding original source:
@@ -113,7 +145,7 @@ for source in result.sources:
     retained_ranges = [original[span.start : span.end] for span in source.spans]
 ```
 
-Generated separators and omission markers do not have spans.
+Caller prefixes, caller separators, and Trimwise-generated omission text do not have spans.
 
 ## Async semantic use
 
@@ -123,7 +155,7 @@ passages needed for the whole context operation:
 ```python
 from collections.abc import Sequence
 
-from trimwise import Trimmer
+from trimwise import ContextSource, Trimmer
 
 
 async def embed(query: str, passages: Sequence[str]) -> tuple[object, Sequence[object]]:
@@ -132,11 +164,15 @@ async def embed(query: str, passages: Sequence[str]) -> tuple[object, Sequence[o
 
 
 result = await Trimmer(async_embedding_callback=embed).atrim_context(
-    source_texts,
+    [
+        ContextSource(text, prefix=f"Source {index + 1}:\n")
+        for index, text in enumerate(source_texts)
+    ],
     limit=800,
     strategy="hybrid",
     query="Which recommendations are supported by the reports?",
     deduplicate=True,
+    separator="\n\n",
 )
 ```
 
@@ -163,8 +199,10 @@ With a query, an oversized best-matching passage is shortened to fit instead of 
 a weaker source that happens to fit whole. This fallback returns the shortened passage in its own
 source row and leaves the other source rows empty.
 
-Trimwise also does not resolve contradictions, verify claims, rank source authority, or copy source
-metadata. Preserve the originals and provenance whenever those responsibilities matter.
+Trimwise treats prefixes and separators as opaque text. It does not validate or escape titles,
+URLs, or other caller values, so applications must handle untrusted metadata safely. Trimwise also
+does not resolve contradictions, verify claims, or rank source authority. Preserve the originals
+and provenance whenever those responsibilities matter.
 
 ## Continue exploring
 
