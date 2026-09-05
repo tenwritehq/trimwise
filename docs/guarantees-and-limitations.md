@@ -28,13 +28,24 @@ headings, and affordable omission markers have been applied. It returns only whe
 result.output_count <= result.limit
 ```
 
-For `trim_context()` and `atrim_context()`, the ceiling applies to the sum of independently
-measured source outputs:
+With plain string sources and no explicit separator, context calls preserve their original
+row-oriented accounting:
 
 ```text
 result.output_count = sum(source.output_count for source in result.sources)
 result.output_count <= result.limit
 ```
+
+Passing a `ContextSource` or an explicit separator instead applies the ceiling to the complete
+prompt-ready rendering:
+
+```text
+measure(result.text) = result.output_count
+result.output_count <= result.limit
+```
+
+The complete measurement includes prefixes only for contributing sources and separators only
+between them. Per-source rows and spans continue to describe the retained source evidence.
 
 The guarantee uses the requested measurement rule:
 
@@ -52,13 +63,11 @@ for unit, limit in (("tokens", 30), ("words", 20), ("characters", 100)):
     assert result.output_count <= limit
 ```
 
-This guarantee applies to `result.text`, not to the larger prompt around it. Instructions, source
-labels, separators, examples, tool definitions, output schemas, and the model's answer all need
-their own context space.
-
-The same boundary applies to context results: caller-added labels and separators are not counted.
-Separately measured token strings can also tokenize differently after they are joined. Measure the
-completed prompt and reserve room when its whole-token ceiling must be exact.
+For a single-source `TrimResult`, this guarantee applies to `result.text`, not to the larger prompt
+around it. For a context result, prefixes and separators supplied through the context API are
+included; formatting added afterward is not. Instructions, examples, tool definitions, output
+schemas, and the model's answer still need their own context space. Measure the completed prompt and
+reserve room when its whole-token ceiling must be exact.
 
 ### Input that already fits is returned exactly
 
@@ -384,20 +393,20 @@ Trimwise deliberately leaves several decisions with the application:
 
 | Responsibility | What the caller should do |
 | --- | --- |
-| Complete prompt budget | Reserve room for labels, instructions, examples, tools, and model output |
-| Source identity | Store document IDs, URLs, authors, timestamps, and access controls outside Trimwise results; reconnect context rows with `source_index` |
+| Complete prompt budget | Use `ContextSource` for budgeted per-source prefixes; reserve room for surrounding instructions, examples, tools, and model output |
+| Source identity | Keep document IDs, authors, timestamps, and access controls in application data; render only the bounded labels you need and reconnect rows with `source_index` |
 | Relevance evaluation | Test downstream answers on representative documents and queries |
 | Factual verification | Check claims against original sources when accuracy matters |
 | Contradiction handling | Preserve and compare conflicting evidence explicitly |
 | Embedding operations | Own callback caching, retries, timeouts, rate limits, privacy, and concurrency |
-| Security | Treat selected source text as untrusted and enforce tool permissions separately |
+| Security | Treat source text and caller-supplied prefixes as untrusted and enforce tool permissions separately |
 | Tokenizer alignment | Supply a custom counter when the default encoding does not match the target model |
 
 `TrimResult.spans` exposes ordered Python-string ranges for retained source text, but it does not
 include source IDs, scores, or embeddings. Starts are inclusive, ends are exclusive, and adjacent
 ranges are merged. Overlapping ranges are never returned because candidates do not overlap.
-Generated omission markers and separators have no span. Keep document identity alongside each
-input before trimming several sources.
+Generated omission markers and caller-supplied prefixes and separators have no span. Keep document
+identity alongside each input before trimming several sources.
 
 For a context result, each source row's spans index only the original string at its `source_index`.
 

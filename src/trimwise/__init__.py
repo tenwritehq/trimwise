@@ -2,6 +2,7 @@
 
 from trimwise.models import (
     BudgetUnit,
+    ContextSource,
     ContextSourceResult,
     ContextTrimResult,
     SemanticBackendError,
@@ -15,6 +16,7 @@ from trimwise.trimmer import Trimmer
 
 __all__ = [
     "BudgetUnit",
+    "ContextSource",
     "ContextSourceResult",
     "ContextTrimResult",
     "SemanticBackendError",

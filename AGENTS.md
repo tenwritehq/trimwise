@@ -134,11 +134,11 @@ Keep each responsibility in its existing file. Generated folders such as `dist/`
 ### Package source
 
 - `src/trimwise/__init__.py`: exposes the supported public API names and nothing else.
-- `src/trimwise/composition.py`: reconstructs exact source outputs, local spans, affordable omission
-  markers, and tiny-budget fallbacks.
+- `src/trimwise/composition.py`: reconstructs exact source outputs, local spans, budgeted context
+  wrappers, affordable omission markers, and tiny-budget fallbacks.
 - `src/trimwise/measurement.py`: measures token, word, and character budgets and finds fitting
   prefixes.
-- `src/trimwise/models.py`: defines public enums, configuration, result values, and semantic
+- `src/trimwise/models.py`: defines public enums, inputs, configuration, result values, and semantic
   backend errors.
 - `src/trimwise/ranking.py`: builds scoring-only section and neighbor context, then implements
   structural, BM25, semantic, hybrid, signal, cosine, and MMR ranking calculations.
@@ -159,6 +159,8 @@ Keep each responsibility in its existing file. Generated folders such as `dist/`
 - `tests/test_async_semantic.py`: checks FastEmbed and caller callback precedence, vector validation,
   staged failures, model reuse, concurrency, async equivalence, and cancellation behavior.
 - `tests/test_context.py`: checks shared-budget validation, selection, composition, counts, and spans.
+- `tests/test_context_rendering.py`: checks budgeted source prefixes, separators, rendered counts,
+  wrapper isolation, and sync/async parity.
 - `tests/test_context_semantic.py`: checks context semantic batching, deduplication, and async use.
 - `tests/test_docstrings.py`: enforces Python docstrings and verifies that `py.typed` is packaged.
 - `tests/test_ranking.py`: checks BM25, centrality, semantic and hybrid fusion, signal scoring,

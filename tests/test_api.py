@@ -16,6 +16,7 @@ def test_public_exports_are_intentionally_small() -> None:
     """Expose only the documented public objects."""
     assert trimwise.__all__ == [
         "BudgetUnit",
+        "ContextSource",
         "ContextSourceResult",
         "ContextTrimResult",
         "SemanticBackendError",

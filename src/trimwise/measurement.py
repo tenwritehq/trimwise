@@ -102,6 +102,23 @@ class Measurer:
             return text
         return self._fitting_scanned_prefix(text, limit)
 
+    def fitting_prefixed_content(self, prefix: str, text: str, limit: int) -> str:
+        """Fit source content after retaining an output prefix in full.
+
+        Args:
+            prefix: Caller text that must precede any returned source content.
+            text: Source content eligible for prefix fallback.
+            limit: Maximum measured size of the complete prefixed output.
+
+        Returns:
+            Longest fitting source prefix after the complete caller prefix.
+        """
+        combined = prefix + text
+        fitting = self.fitting_prefix(combined, limit)
+        if len(fitting) < len(prefix):
+            return ""
+        return fitting[len(prefix) :]
+
     def _fitting_encoded_prefix(self, text: str, limit: int) -> str:
         """Fit a source prefix around the configured encoding's token boundary.
 

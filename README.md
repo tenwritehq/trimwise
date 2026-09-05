@@ -77,23 +77,34 @@ print(result.spans)  # Original-input Python-string offsets
 
 ### Many sources, one shared limit
 
-Use `trim_context()` when passages from several sources should compete for one evidence budget:
+Use `trim_context()` when passages from several sources should compete for one budget. Add
+`ContextSource` prefixes when the final rendered labels must fit inside that same limit:
 
 ```python
+from trimwise import ContextSource, Trimmer
+
 result = Trimmer().trim_context(
-    [record["text"] for record in records],
+    [
+        ContextSource(
+            text=record["text"],
+            prefix=f"Source: {record['title']}\nURL: {record['url']}\n",
+        )
+        for record in records
+    ],
     limit=800,
     query="Which recommendations are supported by the reports?",
+    separator="\n\n",
 )
 
-for source in result.sources:
-    print(records[source.source_index]["url"], source.text)
+prompt_ready_context = result.text
+assert result.output_count <= result.limit
 ```
 
-The result keeps one row per input source, including empty excerpts, and the sum of its source
-output counts stays within `limit`. Labels, URLs, caller-added headings, separators, instructions,
-and answer space are outside that limit. See [Many Sources, One Shared Limit](https://trimwise.readthedocs.io/en/latest/multi-source-context/)
-for the complete contract and the difference from `atrim_many()`.
+The result keeps one row per input source, including empty excerpts. Prefixes are emitted only for
+sources that contribute evidence, and `result.text` contains the fully measured rendering. Your
+surrounding instructions and answer space remain outside this limit. Plain string sources still use
+the original evidence-only accounting. See [Many Sources, One Shared Limit](https://trimwise.readthedocs.io/en/latest/multi-source-context/)
+for both modes and the difference from `atrim_many()`.
 
 Depending on the trimming strategy you want to use, find the corresponding starter code example - [auto](https://trimwise.readthedocs.io/en/latest/strategies/#auto-the-lightweight-default),
 [structural](https://trimwise.readthedocs.io/en/latest/strategies/#structural-cover-a-document-without-a-query), [lexical](https://trimwise.readthedocs.io/en/latest/strategies/#lexical-preserve-exact-query-evidence),

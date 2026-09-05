@@ -228,22 +228,28 @@ That example gives every source its own 120-token limit. When the sources should
 for one allowance, call `trim_context()`:
 
 ```python
+from trimwise import ContextSource
+
 shared = trimmer.trim_context(
-    [source["text"] for source in sources],
+    [
+        ContextSource(
+            text=source["text"],
+            prefix=f"## {source['label']}\n\n",
+        )
+        for source in sources
+    ],
     limit=300,
     query=task,
+    separator="\n\n",
 )
 
-evidence = []
-for row in shared.sources:
-    if row.text:
-        label = sources[row.source_index]["label"]
-        evidence.append(f"## {label}\n\n{row.text}")
+evidence = shared.text
 ```
 
 A more relevant source may use more room, and some source rows may be empty. The labels and
-separators added above are not part of the 300-token limit. Read
-[Many Sources, One Shared Limit](multi-source-context.md) for counts, spans, async use, and the
+separators above are emitted only for contributing sources and are included in the 300-token limit.
+Instructions around `evidence` and the model's answer still need separate room. Read [Many Sources,
+One Shared Limit](multi-source-context.md) for evidence-only mode, counts, spans, async use, and the
 difference from `atrim_many()`.
 
 Keep instructions outside the source text passed to Trimwise. The library is designed to reduce
@@ -415,8 +421,9 @@ not factual truth.
 - **Omitting the query:** lexical, semantic, and hybrid strategies require a nonblank query.
 - **Treating the limit as a target:** it is a ceiling. A query-aware result may stop early instead
   of adding weak evidence.
-- **Budgeting only the excerpts:** leave space for labels, separators, instructions, examples, and
-  the model's answer.
+- **Forgetting prompt overhead:** use `ContextSource` when per-source labels and separators must
+  share the evidence limit, and still reserve room for surrounding instructions, examples, tools,
+  and the model's answer.
 - **Passing instructions as evidence:** trim source material, then assemble it around instructions
   that remain unchanged.
 - **Expecting a summary:** Trimwise selects and joins original fragments; it does not paraphrase or

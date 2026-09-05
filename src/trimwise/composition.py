@@ -49,6 +49,15 @@ class _SourceContext:
     measurer: Measurer
     limit: int
     marker: str
+    output_prefix: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class _ContextRendering:
+    """Store exact prefixes and separator for opt-in aggregate rendering."""
+
+    prefixes: tuple[str, ...]
+    separator: str
 
 
 def _compose(
@@ -86,7 +95,7 @@ def _compose(
         current_groups.append(current)
         outputs.append(_ComposedOutput("".join(current), _source_spans(source, segments)))
 
-    total_count = _output_count(context.measurer, outputs)
+    total_count = _context_output_count(context.measurer, context.rendering, outputs)
     if total_count > context.limit:
         return None
     for source_index, pieces in enumerate(piece_groups):
@@ -98,15 +107,16 @@ def _compose(
             current[piece_index] = piece.marked
             candidate = "".join(current)
             previous = outputs[source_index]
-            candidate_count = (
-                total_count
-                - _text_count(context.measurer, previous.text)
-                + _text_count(context.measurer, candidate)
+            outputs[source_index] = _ComposedOutput(candidate, previous.spans)
+            candidate_count = _context_output_count(
+                context.measurer,
+                context.rendering,
+                outputs,
             )
             if candidate_count <= context.limit:
-                outputs[source_index] = _ComposedOutput(candidate, previous.spans)
                 total_count = candidate_count
             else:
+                outputs[source_index] = previous
                 current[piece_index] = fallback
     return tuple(outputs)
 
@@ -122,6 +132,48 @@ def _output_count(measurer: Measurer, outputs: Iterable[_ComposedOutput]) -> int
         Aggregate count with empty source rows defined as zero.
     """
     return sum(_text_count(measurer, output.text) for output in outputs)
+
+
+def _context_output_count(
+    measurer: Measurer,
+    rendering: _ContextRendering | None,
+    outputs: Iterable[_ComposedOutput],
+) -> int:
+    """Measure legacy source rows or one complete rendered context.
+
+    Args:
+        measurer: Shared output measurer.
+        rendering: Optional caller wrapper settings.
+        outputs: Input-aligned source evidence outputs.
+
+    Returns:
+        Legacy independent sum or exact complete rendered size.
+    """
+    output_tuple = tuple(outputs)
+    if rendering is None:
+        return _output_count(measurer, output_tuple)
+    return measurer.count(_render_context(rendering, output_tuple))
+
+
+def _render_context(
+    rendering: _ContextRendering,
+    outputs: tuple[_ComposedOutput, ...],
+) -> str:
+    """Join contributing source evidence with its caller-owned wrappers.
+
+    Args:
+        rendering: Input-aligned prefixes and inter-source separator.
+        outputs: Input-aligned source evidence outputs.
+
+    Returns:
+        Complete prompt-ready context without wrappers for empty rows.
+    """
+    contributions = [
+        prefix + output.text
+        for prefix, output in zip(rendering.prefixes, outputs, strict=True)
+        if output.text
+    ]
+    return rendering.separator.join(contributions)
 
 
 def _text_count(measurer: Measurer, text: str) -> int:
@@ -305,13 +357,19 @@ def _fallback_output(context: _SelectionContext) -> tuple[_ComposedOutput, ...]:
     Returns:
         Input-aligned outputs with at most one source-derived fragment.
     """
-    if not context.segments:
-        return tuple(_ComposedOutput("", ()) for _ in context.sources)
-    index = max(
+    empty = tuple(_ComposedOutput("", ()) for _ in context.sources)
+    indexes = sorted(
         range(len(context.segments)),
         key=lambda candidate: (context.ranking.relevance[candidate], -candidate),
+        reverse=True,
     )
-    return _fallback_candidate_output(context, index)
+    if context.rendering is None:
+        return _fallback_candidate_output(context, indexes[0]) if indexes else empty
+    for index in indexes:
+        output = _fallback_candidate_output(context, index)
+        if any(source.text for source in output):
+            return output
+    return empty
 
 
 def _fallback_candidate_output(
@@ -335,6 +393,7 @@ def _fallback_candidate_output(
         context.measurer,
         context.limit,
         context.marker,
+        context.rendering.prefixes[source_index] if context.rendering is not None else "",
     )
     fragment = _fitting_segment(source_context, segment)
     if not fragment.text:
@@ -362,13 +421,13 @@ def _fitting_segment(context: _SourceContext, segment: Segment) -> _ComposedOutp
     opening = lines[0]
     closing = lines[-1]
     shell = opening + closing
-    if context.measurer.count(shell) > context.limit:
+    if context.measurer.count(context.output_prefix + shell) > context.limit:
         return _fitting_segment_prefix(context, segment)
     body = "".join(lines[1:-1])
     endpoints = _line_endpoints(body)
     for end in reversed(endpoints):
         candidate = opening + body[:end] + closing
-        if context.measurer.count(candidate) <= context.limit:
+        if context.measurer.count(context.output_prefix + candidate) <= context.limit:
             prefix_end = segment.start + len(opening) + end
             spans = (
                 SourceSpan(segment.start, prefix_end),
@@ -415,7 +474,11 @@ def _fitting_plain_prefix(context: _SourceContext, text: str) -> str:
     if prefix:
         return prefix
     prefix = _fitting_boundary_prefix(context, text, _complete_unit_endpoints(text))
-    return prefix or context.measurer.fitting_prefix(text, context.limit)
+    return prefix or context.measurer.fitting_prefixed_content(
+        context.output_prefix,
+        text,
+        context.limit,
+    )
 
 
 def _fitting_boundary_prefix(
@@ -434,8 +497,12 @@ def _fitting_boundary_prefix(
         Longest fitting boundary prefix, or an empty string when none fits.
     """
     for end in sorted(set(endpoints), reverse=True):
-        if 0 < end < len(text) and context.measurer.count(text[:end]) <= context.limit:
-            return text[:end]
+        candidate = text[:end]
+        if (
+            0 < end < len(text)
+            and context.measurer.count(context.output_prefix + candidate) <= context.limit
+        ):
+            return candidate
     return ""
 
 
@@ -510,13 +577,13 @@ def _add_fallback_markers(
     output = fragment.text
     if context.source[: segment.start].strip():
         candidate = context.marker + _newlines_before(output) + output
-        if context.measurer.count(candidate) <= context.limit:
+        if context.measurer.count(context.output_prefix + candidate) <= context.limit:
             output = candidate
     has_trailing_omission = fragment.text != segment.text or bool(
         context.source[segment.end :].strip()
     )
     if has_trailing_omission:
         candidate = output + _newlines_after(output) + context.marker
-        if context.measurer.count(candidate) <= context.limit:
+        if context.measurer.count(context.output_prefix + candidate) <= context.limit:
             output = candidate
     return _ComposedOutput(output, fragment.spans)
