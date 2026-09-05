@@ -159,6 +159,10 @@ initial opportunity in input order, then spends remaining room on the strongest 
 This is deterministic, but it is not an optimal allocation and does not guarantee that every
 source contributes.
 
+With a query, an oversized best-matching passage is shortened to fit instead of being dropped for
+a weaker source that happens to fit whole. This fallback returns the shortened passage in its own
+source row and leaves the other source rows empty.
+
 Trimwise also does not resolve contradictions, verify claims, rank source authority, or copy source
 metadata. Preserve the originals and provenance whenever those responsibilities matter.
 

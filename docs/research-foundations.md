@@ -228,9 +228,11 @@ That provides the library's hard operational guarantee:
 output_count <= limit
 ```
 
-When no complete candidate fits, Trimwise progressively tries smaller complete units and finally
-an exact fitting source prefix. This guarantees a usable result under tiny limits, although the
-last fallback cannot preserve document-wide meaning when the source offers no smaller boundaries.
+When fallback is needed, Trimwise progressively tries smaller complete units and finally an exact
+fitting source prefix. Multi-source query-aware trimming also uses this path when its strongest
+passage is oversized, rather than replacing it with a weaker complete passage. This guarantees a
+usable result under tiny limits, although the last fallback cannot preserve document-wide meaning
+when the source offers no smaller boundaries.
 
 ## How Trimwise compares with model-based compression
 

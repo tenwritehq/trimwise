@@ -184,12 +184,45 @@ def _select_query_aware(
         Fitting composed output, or ``None`` when no complete unit fits.
     """
     state = _new_selection_state(context)
-    evidence = {index for index in state.remaining if context.segments[index].kind != "heading"}
-    if evidence:
-        state.remaining = evidence
-    state.remaining = context.ranking.adaptive_indexes(state.remaining)
+    state.remaining = _query_aware_indexes(context)
     _fill_remaining(state, _try_add_with_heading)
     return state.output if state.selected else None
+
+
+def _oversized_query_fallback_index(context: _SelectionContext) -> int | None:
+    """Find a strongest oversized candidate that should precede weaker sources.
+
+    Args:
+        context: Multi-source query-aware selection inputs.
+
+    Returns:
+        Strongest eligible candidate when it needs fallback, otherwise ``None``.
+    """
+    if len(set(context.source_indexes)) < 2:
+        return None
+    candidates = _query_aware_indexes(context)
+    if not candidates:
+        return None
+    index = context.ranking.next_index(
+        candidates,
+        context.ranking.new_maximum_similarities(),
+        context.mmr_lambda,
+    )
+    return index if _compose(context, {index}) is None else None
+
+
+def _query_aware_indexes(context: _SelectionContext) -> set[int]:
+    """Return adaptively bounded non-heading evidence candidates.
+
+    Args:
+        context: Query-aware selection inputs.
+
+    Returns:
+        Candidate indexes eligible for query-aware selection.
+    """
+    candidates = set(range(len(context.segments)))
+    evidence = {index for index in candidates if context.segments[index].kind != "heading"}
+    return context.ranking.adaptive_indexes(evidence or candidates)
 
 
 def _fill_source_round(state: _SelectionState) -> None:
