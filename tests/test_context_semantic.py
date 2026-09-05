@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from trimwise import SemanticBackendError, Trimmer
+from trimwise import SemanticBackendError, SourceSpan, Trimmer
 from trimwise.semantic import _SemanticVectors, normalize_callback_output
 
 
@@ -168,6 +168,59 @@ def test_semantic_context_competition_can_favor_a_later_source(strategy: str) ->
     )
     assert result.sources[0].text == ""
     assert result.sources[1].text == "target answer\n"
+
+
+@pytest.mark.parametrize("strategy", ["semantic", "hybrid"])
+def test_oversized_semantic_evidence_displaces_a_weaker_fitting_source(
+    strategy: str,
+) -> None:
+    """Prefer the strongest source's prefix for semantic and hybrid selection.
+
+    Args:
+        strategy: Semantic-only or lexical-semantic fusion.
+    """
+    relevant = "target " * 100
+    result = Trimmer(embedding_callback=_target_vectors).trim_context(
+        (relevant, "unrelated"),
+        20,
+        unit="characters",
+        strategy=strategy,
+        query="target",
+    )
+    assert result.sources[0].text == relevant[:20]
+    assert result.sources[0].spans == (SourceSpan(0, 20),)
+    assert result.sources[1].text == ""
+
+
+@pytest.mark.asyncio
+async def test_async_oversized_semantic_evidence_uses_the_same_fallback() -> None:
+    """Apply strongest-source fallback after an asynchronous embedding call."""
+
+    async def embed(
+        query: str,
+        passages: Sequence[str],
+    ) -> tuple[NDArray[np.float32], list[NDArray[np.float32]]]:
+        """Return deterministic vectors through the asynchronous callback path.
+
+        Args:
+            query: Shared semantic query.
+            passages: Operation-wide contextual candidates.
+
+        Returns:
+            One query vector and one vector per passage.
+        """
+        return _target_vectors(query, passages)
+
+    relevant = "target " * 100
+    result = await Trimmer(async_embedding_callback=embed).atrim_context(
+        (relevant, "unrelated"),
+        20,
+        unit="characters",
+        strategy="semantic",
+        query="target",
+    )
+    assert result.sources[0].text == relevant[:20]
+    assert result.sources[1].text == ""
 
 
 def test_contextual_passages_never_mix_source_neighbors_or_headings() -> None:

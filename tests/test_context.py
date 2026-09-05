@@ -229,6 +229,57 @@ def test_later_lexical_evidence_displaces_earlier_filler() -> None:
     assert result.sources[1].text == "target answer\n"
 
 
+@pytest.mark.parametrize("relevant_index", [0, 1])
+@pytest.mark.parametrize("strategy", ["lexical", "auto"])
+def test_oversized_lexical_evidence_displaces_a_weaker_fitting_source(
+    relevant_index: int,
+    strategy: str,
+) -> None:
+    """Use bounded fallback before accepting a weaker source's complete text.
+
+    Args:
+        relevant_index: Input position of the oversized relevant source.
+        strategy: Explicit lexical ranking or automatic query-aware resolution.
+    """
+    relevant = "photosynthesis " * 200
+    sources = ["staff meeting today", "staff meeting today"]
+    sources[relevant_index] = relevant
+    trimmer = Trimmer()
+    result = trimmer.trim_context(
+        sources,
+        20,
+        unit="tokens",
+        strategy=strategy,
+        query="Explain photosynthesis",
+    )
+    ordinary = trimmer.trim(
+        relevant,
+        20,
+        unit="tokens",
+        strategy=strategy,
+        query="Explain photosynthesis",
+    )
+    assert result.sources[relevant_index].text == ordinary.text
+    assert result.sources[relevant_index].output_count == result.output_count == result.limit
+    assert result.sources[1 - relevant_index].text == ""
+
+
+def test_query_fallback_prefers_oversized_body_evidence_over_its_heading() -> None:
+    """Keep fallback on non-heading evidence when a heading also matches the query."""
+    heading = "# Target\n\n"
+    relevant = heading + "body evidence " * 100
+    result = Trimmer().trim_context(
+        (relevant, "unrelated"),
+        20,
+        unit="characters",
+        strategy="lexical",
+        query="target",
+    )
+    assert result.sources[0].text == relevant[len(heading) : len(heading) + 20]
+    assert result.sources[0].spans == (SourceSpan(len(heading), len(heading) + 20),)
+    assert result.sources[1].text == ""
+
+
 def test_queryless_source_round_is_deterministic_and_then_fills_globally() -> None:
     """Give sources an ordered opportunity before spending remaining space."""
     sources = ["A1.\n\nA2.", "B1.\n\nB2."]

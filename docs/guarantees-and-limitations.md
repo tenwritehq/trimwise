@@ -226,7 +226,7 @@ substring. Trimwise may:
 - Add the configured omission marker where it fits.
 - Add minimal newline separators between separated fragments.
 - Attach an original section heading to a query-aware passage when both fit.
-- Use an exact source prefix when no complete unit fits.
+- Use an exact source prefix when fallback is needed.
 
 These operations preserve source-backed content but can still change interpretation. A genuine
 sentence may depend on a qualification, definition, table header, warning, or negation that was not
@@ -254,8 +254,10 @@ their domain relationships. V1 has no JSON, chat, source-code, CSV, or XML parse
 
 ## Tiny-budget and indivisible-text limits
 
-When no complete candidate fits, fallback prefers a complete paragraph, sentence, or source line
-before taking the longest exact source prefix that fits.
+When fallback is needed, Trimwise prefers a complete paragraph, sentence, or source line before
+taking the longest exact source prefix that fits. This happens when no complete candidate fits. In
+a multi-source query-aware call, it also happens when the strongest passage is oversized, so a
+weaker source that happens to fit whole does not replace the best match.
 
 This creates several boundaries:
 

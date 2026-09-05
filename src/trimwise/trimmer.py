@@ -7,7 +7,12 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import cast
 
-from trimwise.composition import _ComposedOutput, _fallback_output, _text_count
+from trimwise.composition import (
+    _ComposedOutput,
+    _fallback_candidate_output,
+    _fallback_output,
+    _text_count,
+)
 from trimwise.measurement import Measurer, TokenCounter
 from trimwise.models import (
     BudgetUnit,
@@ -30,6 +35,7 @@ from trimwise.ranking import (
 from trimwise.segmentation import Segment, segment_text
 from trimwise.selection import (
     _expand_structural_plaintext,
+    _oversized_query_fallback_index,
     _prepare_context_candidates,
     _select_query_aware,
     _select_structural,
@@ -776,13 +782,18 @@ class Trimmer:
             self.config.omission_marker,
             self.config.mmr_lambda,
         )
-        outputs = (
-            _select_structural(context)
-            if request.strategy is Strategy.STRUCTURAL
-            else _select_query_aware(context)
-        )
+        fallback_index = None
+        if request.strategy is Strategy.STRUCTURAL:
+            outputs = _select_structural(context)
+        else:
+            fallback_index = _oversized_query_fallback_index(context)
+            outputs = None if fallback_index is not None else _select_query_aware(context)
         if outputs is None:
-            outputs = _fallback_output(context)
+            outputs = (
+                _fallback_output(context)
+                if fallback_index is None
+                else _fallback_candidate_output(context, fallback_index)
+            )
         return _context_result(prepared, outputs)
 
 

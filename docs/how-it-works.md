@@ -326,8 +326,10 @@ standalone heading candidates when non-heading evidence exists, then bound the c
 1. Order candidates by the strategy's primary query score.
 2. Search the first 90% of score gaps for the largest drop, avoiding an extreme tail outlier.
 3. Keep candidates through that boundary plus a five-candidate recall buffer.
-4. Run MMR inside the bounded pool.
-5. Try each selected passage with its nearest heading; if the pair is too large, try the passage
+4. For a multi-source context, shorten the strongest passage if it cannot fit whole rather than
+   replacing it with a weaker complete passage.
+5. Run MMR inside the bounded pool.
+6. Try each selected passage with its nearest heading; if the pair is too large, try the passage
    alone.
 
 The cutoff depends on score shape rather than an absolute BM25 or cosine threshold. This matters
@@ -398,6 +400,8 @@ gap; they are not summaries of what was removed.
 
 If selection cannot retain any complete candidate, Trimwise chooses the strongest candidate by
 final relevance, breaking ties toward the earlier source position, and progressively shrinks it.
+Multi-source query-aware selection uses the same behavior when its strongest passage is too large,
+even if a weaker passage from another source could fit whole.
 
 For ordinary text, fallback prefers:
 
@@ -480,7 +484,7 @@ complete result may differ from one contiguous source substring because Trimwise
 - Add the configured omission marker where it fits.
 - Add minimal newlines between separated fragments.
 - Attach an original section heading to a selected query-aware passage.
-- Shorten the strongest candidate through source-prefix fallback when no complete unit fits.
+- Shorten the strongest candidate through source-prefix fallback when fallback is needed.
 
 Trimwise never paraphrases retained text, synthesizes a transition, repairs malformed Markdown, or
 combines distant facts into a new sentence.

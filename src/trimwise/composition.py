@@ -305,13 +305,29 @@ def _fallback_output(context: _SelectionContext) -> tuple[_ComposedOutput, ...]:
     Returns:
         Input-aligned outputs with at most one source-derived fragment.
     """
-    empty = tuple(_ComposedOutput("", ()) for _ in context.sources)
     if not context.segments:
-        return empty
+        return tuple(_ComposedOutput("", ()) for _ in context.sources)
     index = max(
         range(len(context.segments)),
         key=lambda candidate: (context.ranking.relevance[candidate], -candidate),
     )
+    return _fallback_candidate_output(context, index)
+
+
+def _fallback_candidate_output(
+    context: _SelectionContext,
+    index: int,
+) -> tuple[_ComposedOutput, ...]:
+    """Retain a measurable prefix of one chosen indivisible candidate.
+
+    Args:
+        context: Source, ranking, and budget settings.
+        index: Candidate selected for bounded-prefix fallback.
+
+    Returns:
+        Input-aligned outputs with the fragment in its original source row.
+    """
+    empty = tuple(_ComposedOutput("", ()) for _ in context.sources)
     segment = context.segments[index]
     source_index = context.source_indexes[index]
     source_context = _SourceContext(
