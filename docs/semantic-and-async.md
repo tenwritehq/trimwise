@@ -372,8 +372,8 @@ vectors after the call.
 semantic or hybrid source passages because those passages compete for one limit. Their
 `deduplicate=True` option uses the same exact-string, first-seen behavior with synchronous
 callbacks, async callbacks, and Trimwise-managed FastEmbed. Source rows remain distinct even when
-their passage strings share an embedding. `ContextSource` prefixes and the caller separator are
-output-only and never appear in callback passages. See
+their passage strings share an embedding. `ContextSource` wrapper text and the caller separator
+are output-only and never appear in callback passages. See
 [Many Sources, One Shared Limit](multi-source-context.md) for the result and budget contract.
 
 For CPU-only structural or lexical work, async calls can overlap at the worker-thread level. For

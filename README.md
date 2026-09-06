@@ -78,7 +78,8 @@ print(result.spans)  # Original-input Python-string offsets
 ### Many sources, one shared limit
 
 Use `trim_context()` when passages from several sources should compete for one budget. Add
-`ContextSource` prefixes when the final rendered labels must fit inside that same limit:
+`ContextSource` wrapper text when source labels or closing delimiters must fit inside that same
+limit:
 
 ```python
 from trimwise import ContextSource, Trimmer
@@ -87,7 +88,8 @@ result = Trimmer().trim_context(
     [
         ContextSource(
             text=record["text"],
-            prefix=f"Source: {record['title']}\nURL: {record['url']}\n",
+            prefix=f"--- Source: {record['title']} ({record['url']}) ---\n",
+            suffix="\n--- End source ---",
         )
         for record in records
     ],
@@ -100,10 +102,11 @@ prompt_ready_context = result.text
 assert result.output_count <= result.limit
 ```
 
-The result keeps one row per input source, including empty excerpts. Prefixes are emitted only for
-sources that contribute evidence, and `result.text` contains the fully measured rendering. Your
-surrounding instructions and answer space remain outside this limit. Plain string sources still use
-the original evidence-only accounting. See [Many Sources, One Shared Limit](https://trimwise.readthedocs.io/en/latest/multi-source-context/)
+The result keeps one row per input source, including empty excerpts. A source's prefix and suffix
+are emitted together only when that source contributes evidence, and `result.text` contains the
+fully measured rendering. Your surrounding instructions and answer space remain outside this
+limit. Plain string sources still use the original evidence-only accounting. See
+[Many Sources, One Shared Limit](https://trimwise.readthedocs.io/en/latest/multi-source-context/)
 for both modes and the difference from `atrim_many()`.
 
 Depending on the trimming strategy you want to use, find the corresponding starter code example - [auto](https://trimwise.readthedocs.io/en/latest/strategies/#auto-the-lightweight-default),

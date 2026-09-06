@@ -235,6 +235,7 @@ shared = trimmer.trim_context(
         ContextSource(
             text=source["text"],
             prefix=f"## {source['label']}\n\n",
+            suffix="\n\n---",
         )
         for source in sources
     ],
@@ -246,11 +247,11 @@ shared = trimmer.trim_context(
 evidence = shared.text
 ```
 
-A more relevant source may use more room, and some source rows may be empty. The labels and
-separators above are emitted only for contributing sources and are included in the 300-token limit.
-Instructions around `evidence` and the model's answer still need separate room. Read [Many Sources,
-One Shared Limit](multi-source-context.md) for evidence-only mode, counts, spans, async use, and the
-difference from `atrim_many()`.
+A more relevant source may use more room, and some source rows may be empty. The labels, closing
+delimiters, and separators above are emitted only for contributing sources and are included in the
+300-token limit. Instructions around `evidence` and the model's answer still need separate room.
+Read [Many Sources, One Shared Limit](multi-source-context.md) for evidence-only mode, counts,
+spans, async use, and the difference from `atrim_many()`.
 
 Keep instructions outside the source text passed to Trimwise. The library is designed to reduce
 evidence, not to shorten system prompts, tool rules, output schemas, or other instructions that the

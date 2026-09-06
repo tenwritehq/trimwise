@@ -26,8 +26,8 @@ source 3 ──> Trimwise ──> high-signal excerpt 3 ┘
 
 `trim_context()` and `atrim_context()` can give those sources one shared evidence limit. More
 relevant sources may use more of the available space, while every input position remains present
-in the result. Use `ContextSource` when source labels and separators must count toward that same
-limit and be returned as one prompt-ready string. See
+in the result. Use `ContextSource` when per-source opening or closing text and separators must count
+toward that same limit and be returned as one prompt-ready string. See
 [Many Sources, One Shared Limit](multi-source-context.md).
 
 Trimwise compacts text you already have. It does **not** search the web, retrieve documents, query

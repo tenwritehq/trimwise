@@ -129,15 +129,17 @@ class TrimInput:
 
 @dataclass(frozen=True, slots=True)
 class ContextSource:
-    """Pair source evidence with an output-only prefix.
+    """Pair source evidence with optional output-only wrapper text.
 
     Attributes:
         text: Evidence that may be segmented, ranked, and returned with source spans.
         prefix: Opaque caller text emitted only when this source contributes evidence.
+        suffix: Opaque caller text emitted after this source contributes evidence.
     """
 
     text: str
     prefix: str = ""
+    suffix: str = ""
 
 
 @dataclass(frozen=True, slots=True)

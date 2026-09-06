@@ -1,6 +1,6 @@
 ---
 title: Trim Many Sources with One Shared Limit
-description: Let evidence and caller-supplied source labels from several inputs compete for one measured token, word, or character budget.
+description: Let evidence and caller-supplied source wrappers from several inputs compete for one measured token, word, or character budget.
 ---
 
 # Many Sources, One Shared Limit
@@ -10,8 +10,9 @@ all of their passages together, so a source with stronger evidence can use more 
 space. The result still contains one entry per input source, in the same order.
 
 This is useful after retrieval, search, or tool calls have already chosen the sources. Trimwise does
-not retrieve documents or define a metadata format. You can provide an exact output prefix for each
-source when labels or URLs must count toward the same limit as the evidence.
+not retrieve documents or define a metadata format. You can provide exact opening and closing text
+for each source when labels, URLs, or balanced delimiters must count toward the same limit as the
+evidence.
 
 ## A runnable core-install example
 
@@ -42,7 +43,8 @@ result = Trimmer().trim_context(
     [
         ContextSource(
             text=record["text"],
-            prefix=f"Source: {record['url']}\n",
+            prefix=f"--- Source: {record['url']} ---\n",
+            suffix="\n--- End source ---",
         )
         for record in records
     ],
@@ -60,10 +62,14 @@ assert len(result.text.split()) == result.output_count
 assert result.output_count <= result.limit
 ```
 
-`ContextSource.text` is evidence. Its `prefix` is copied exactly before that source's returned
-evidence, but only when the source contributes a nonempty excerpt. Prefixes do not influence which
-evidence wins and are never included in source spans. The separator is copied only between
+`ContextSource.text` is evidence. Its `prefix` and `suffix` are copied exactly around that source's
+returned evidence, but only when the source contributes a nonempty excerpt. Neither wrapper half
+influences which evidence wins or appears in source spans. The separator is copied only between
 contributing sources.
+
+The prefix and suffix are conditional as a pair. If the limit cannot afford both wrapper halves
+and any evidence from a source, that source's result row is empty; Trimwise never returns a bare or
+half-finished wrapper.
 
 `source_index` is the zero-based input position. Use it to reconnect each result row to caller-owned
 filenames, permissions, timestamps, or other metadata that does not belong in the rendered text.
@@ -111,8 +117,8 @@ result.output_count <= result.limit
 
 `input_count` still measures evidence only. Each source row's `output_count` still measures only
 that row's returned evidence and omission markers. The aggregate `output_count` measures the final
-`result.text`, including emitted prefixes and separators, so it need not equal the sum of row
-counts. A plain string can be mixed with `ContextSource`; it simply has no prefix.
+`result.text`, including emitted prefixes, suffixes, and separators, so it need not equal the sum
+of row counts. A plain string can be mixed with `ContextSource`; it simply has no wrapper text.
 
 Instructions, examples, tool definitions, an output schema, a fixed prompt header, and the model's
 answer are still outside this limit. Reserve room for those surrounding parts.
@@ -145,7 +151,7 @@ for source in result.sources:
     retained_ranges = [original[span.start : span.end] for span in source.spans]
 ```
 
-Caller prefixes, caller separators, and Trimwise-generated omission text do not have spans.
+Caller prefixes, suffixes, separators, and Trimwise-generated omission text do not have spans.
 
 ## Async semantic use
 
@@ -165,7 +171,11 @@ async def embed(query: str, passages: Sequence[str]) -> tuple[object, Sequence[o
 
 result = await Trimmer(async_embedding_callback=embed).atrim_context(
     [
-        ContextSource(text, prefix=f"Source {index + 1}:\n")
+        ContextSource(
+            text,
+            prefix=f"--- Source {index + 1} ---\n",
+            suffix="\n--- End source ---",
+        )
         for index, text in enumerate(source_texts)
     ],
     limit=800,
@@ -199,10 +209,10 @@ With a query, an oversized best-matching passage is shortened to fit instead of 
 a weaker source that happens to fit whole. This fallback returns the shortened passage in its own
 source row and leaves the other source rows empty.
 
-Trimwise treats prefixes and separators as opaque text. It does not validate or escape titles,
-URLs, or other caller values, so applications must handle untrusted metadata safely. Trimwise also
-does not resolve contradictions, verify claims, or rank source authority. Preserve the originals
-and provenance whenever those responsibilities matter.
+Trimwise treats prefixes, suffixes, and separators as opaque text. It does not validate or escape
+titles, URLs, or other caller values, so applications must handle untrusted metadata safely.
+Trimwise also does not resolve contradictions, verify claims, or rank source authority. Preserve
+the originals and provenance whenever those responsibilities matter.
 
 ## Continue exploring
 
