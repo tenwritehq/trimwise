@@ -28,8 +28,8 @@ duplicate contextual passages once per normalized-query callback batch.
 
 ## Shared-context inputs
 
-Use [`ContextSource`][trimwise.ContextSource] when a source needs an output prefix that counts
-toward the same shared limit as its retained evidence.
+Use [`ContextSource`][trimwise.ContextSource] when a source needs output-only opening or closing
+text that counts toward the same shared limit as its retained evidence.
 
 ::: trimwise.ContextSource
 

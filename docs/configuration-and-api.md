@@ -56,7 +56,7 @@ These are the package's documented exports:
 | `TrimConfig` | Stores immutable reusable configuration |
 | `TrimInput` | Describes one independent request for asynchronous batch trimming |
 | `TrimResult` | Reports the excerpt, measurements, resolved strategy, and whether text changed |
-| `ContextSource` | Pairs evidence with an optional output-only prefix |
+| `ContextSource` | Pairs evidence with optional output-only prefix and suffix text |
 | `ContextSourceResult` | Reports one input-aligned source excerpt and its local spans |
 | `ContextTrimResult` | Reports all source excerpts and their shared aggregate measurements |
 | `SourceSpan` | Identifies one retained range in the original input string |
@@ -275,15 +275,17 @@ trim_context(
 
 `atrim_context()` accepts the same arguments and returns the same result type asynchronously.
 `sources` must be a sequence of strings or `ContextSource` values, not one bare string or an
-arbitrary iterable. `ContextSource(text, prefix="...")` attaches exact output text that is emitted
-only if that source contributes evidence. The result contains one `ContextSourceResult` per input
-position. A source may receive an empty excerpt, but its row and `source_index` remain present.
+arbitrary iterable. `ContextSource(text, prefix="...", suffix="...")` attaches exact opening and
+closing output text that is emitted only if that source contributes evidence. If its complete
+wrapper plus evidence cannot fit, neither wrapper half is emitted. The result contains one
+`ContextSourceResult` per input position. A source may receive an empty excerpt, but its row and
+`source_index` remain present.
 
 Supplying any `ContextSource` or an explicit `separator` returns the complete rendering in
-`result.text`. Its aggregate `output_count` measures prefixes, evidence, separators, and omission
-text together and cannot exceed the shared limit. Prefixes and separators never affect ranking,
-embedding input, or source spans. With plain strings and no separator, `result.text` remains `None`
-and the original sum-of-row-counts behavior is preserved. See
+`result.text`. Its aggregate `output_count` measures prefixes, evidence, suffixes, separators, and
+omission text together and cannot exceed the shared limit. Wrapper text and separators never
+affect ranking, embedding input, or source spans. With plain strings and no separator,
+`result.text` remains `None` and the original sum-of-row-counts behavior is preserved. See
 [Many Sources, One Shared Limit](multi-source-context.md) for examples and exact counting rules.
 
 `deduplicate=True` is a best-effort embedding option. It sends each exact repeated contextual
@@ -394,8 +396,9 @@ create consistent subword IDs. Keep that encoding representative of the text eve
 counter owns the hard budget.
 
 Because Trimwise does not assume a custom counter is monotonic, the rare final-prefix fallback may
-measure multiple source prefixes to find the longest exact fit. Keep the callback inexpensive or
-cache work inside it when this path matters.
+measure multiple source prefixes to find the longest exact fit. With a source suffix, each attempt
+is measured as one complete wrapped string. Keep the callback inexpensive or cache work inside it
+when this path matters.
 
 ## `TrimConfig`
 
@@ -575,8 +578,8 @@ The context methods return a frozen, slotted `ContextTrimResult`:
 
 Each source result contains `source_index`, `text`, `input_count`, `output_count`, `trimmed`, and
 local `spans`. Empty or wholly omitted sources keep their row with empty text, zero output count,
-and no spans. Prefixes and separators have no spans. Keep non-rendered caller metadata outside the
-result and reconnect it with `source_index`.
+and no spans. Prefixes, suffixes, and separators have no spans. Keep non-rendered caller metadata
+outside the result and reconnect it with `source_index`.
 
 ## `Strategy`
 

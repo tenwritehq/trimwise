@@ -50,13 +50,15 @@ class _SourceContext:
     limit: int
     marker: str
     output_prefix: str = ""
+    output_suffix: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class _ContextRendering:
-    """Store exact prefixes and separator for opt-in aggregate rendering."""
+    """Store exact source wrappers and separator for aggregate rendering."""
 
     prefixes: tuple[str, ...]
+    suffixes: tuple[str, ...]
     separator: str
 
 
@@ -169,8 +171,13 @@ def _render_context(
         Complete prompt-ready context without wrappers for empty rows.
     """
     contributions = [
-        prefix + output.text
-        for prefix, output in zip(rendering.prefixes, outputs, strict=True)
+        prefix + output.text + suffix
+        for prefix, suffix, output in zip(
+            rendering.prefixes,
+            rendering.suffixes,
+            outputs,
+            strict=True,
+        )
         if output.text
     ]
     return rendering.separator.join(contributions)
@@ -394,6 +401,7 @@ def _fallback_candidate_output(
         context.limit,
         context.marker,
         context.rendering.prefixes[source_index] if context.rendering is not None else "",
+        context.rendering.suffixes[source_index] if context.rendering is not None else "",
     )
     fragment = _fitting_segment(source_context, segment)
     if not fragment.text:
@@ -421,13 +429,13 @@ def _fitting_segment(context: _SourceContext, segment: Segment) -> _ComposedOutp
     opening = lines[0]
     closing = lines[-1]
     shell = opening + closing
-    if context.measurer.count(context.output_prefix + shell) > context.limit:
+    if _wrapped_output_count(context, shell) > context.limit:
         return _fitting_segment_prefix(context, segment)
     body = "".join(lines[1:-1])
     endpoints = _line_endpoints(body)
     for end in reversed(endpoints):
         candidate = opening + body[:end] + closing
-        if context.measurer.count(context.output_prefix + candidate) <= context.limit:
+        if _wrapped_output_count(context, candidate) <= context.limit:
             prefix_end = segment.start + len(opening) + end
             spans = (
                 SourceSpan(segment.start, prefix_end),
@@ -474,8 +482,8 @@ def _fitting_plain_prefix(context: _SourceContext, text: str) -> str:
     if prefix:
         return prefix
     prefix = _fitting_boundary_prefix(context, text, _complete_unit_endpoints(text))
-    return prefix or context.measurer.fitting_prefixed_content(
-        context.output_prefix,
+    return prefix or context.measurer.fitting_wrapped_content(
+        (context.output_prefix, context.output_suffix),
         text,
         context.limit,
     )
@@ -498,10 +506,7 @@ def _fitting_boundary_prefix(
     """
     for end in sorted(set(endpoints), reverse=True):
         candidate = text[:end]
-        if (
-            0 < end < len(text)
-            and context.measurer.count(context.output_prefix + candidate) <= context.limit
-        ):
+        if 0 < end < len(text) and _wrapped_output_count(context, candidate) <= context.limit:
             return candidate
     return ""
 
@@ -577,13 +582,26 @@ def _add_fallback_markers(
     output = fragment.text
     if context.source[: segment.start].strip():
         candidate = context.marker + _newlines_before(output) + output
-        if context.measurer.count(context.output_prefix + candidate) <= context.limit:
+        if _wrapped_output_count(context, candidate) <= context.limit:
             output = candidate
     has_trailing_omission = fragment.text != segment.text or bool(
         context.source[segment.end :].strip()
     )
     if has_trailing_omission:
         candidate = output + _newlines_after(output) + context.marker
-        if context.measurer.count(context.output_prefix + candidate) <= context.limit:
+        if _wrapped_output_count(context, candidate) <= context.limit:
             output = candidate
     return _ComposedOutput(output, fragment.spans)
+
+
+def _wrapped_output_count(context: _SourceContext, text: str) -> int:
+    """Measure source evidence between its complete caller wrapper.
+
+    Args:
+        context: Source-specific wrapper and measurement settings.
+        text: Candidate evidence or evidence plus omission markers.
+
+    Returns:
+        Measured size of the complete conditional contribution.
+    """
+    return context.measurer.count(context.output_prefix + text + context.output_suffix)

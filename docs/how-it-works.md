@@ -65,9 +65,9 @@ most the limit, it returns the original string exactly and stops before Markdown
 callback invocation, or FastEmbed loading.
 
 For plain string context calls, the fitting check uses the sum of independently measured source
-inputs. When prefixes or a separator are supplied, it instead measures the complete rendered
-context. A fitting collection returns every source unchanged; otherwise sources compete even when
-each evidence string would fit by itself.
+inputs. When source wrapper text or a separator is supplied, it instead measures the complete
+rendered context. A fitting collection returns every source unchanged; otherwise sources compete
+even when each evidence string would fit by itself.
 
 ```python
 from trimwise import Trimmer
@@ -360,8 +360,8 @@ Ranking order never becomes output order. For every proposed addition, Trimwise:
 1. Sorts all selected candidates by their original source position.
 2. Inserts exact whitespace for untouched gaps or minimal separators for omitted nonblank gaps.
 3. Composes the retained fragments without optional omission markers.
-4. For a rendered context, adds prefixes to contributing rows and joins them with the caller's
-   separator.
+4. For a rendered context, wraps each contributing row with its caller text and joins rows with the
+   caller's separator.
 5. Measures that complete proposal.
 6. Rejects the addition if it exceeds the limit.
 7. Otherwise, tries optional omission markers one gap at a time in source-gap order.
@@ -372,9 +372,9 @@ of estimating candidate cost in isolation.
 
 For context results, Trimwise reconstructs each source separately. Plain string calls retain the
 sum-of-row measurement. Rendered calls remeasure the one final string, so token or custom counters
-see the real boundaries between prefix, evidence, and separator. Optional markers are tried in
-source input order after the retained content fits. A wholly omitted source receives neither a
-standalone marker nor a prefix.
+see the real boundaries between prefix, evidence, suffix, and separator. Optional markers are
+tried in source input order after the retained content fits. A wholly omitted source receives no
+standalone marker or wrapper text.
 
 ### Leading, internal, and trailing gaps
 
@@ -445,6 +445,9 @@ A custom token counter may be non-monotonic—for example, adding one character 
 tokens. Trimwise therefore scans candidate prefixes rather than assuming a binary-search boundary,
 keeping the final fit exact at the cost of more callback calls on this rare path.
 
+When a source has a suffix, every fallback attempt is measured with both wrapper halves in place.
+This keeps closing text inside the limit even when token counts change at either boundary.
+
 After content fallback, affordable leading and trailing omission markers are tried without removing
 the retained fragment.
 
@@ -476,8 +479,9 @@ it. Instructions, examples, tool schemas, and model output still need their own 
 
 For `ContextTrimResult`, plain string calls without an explicit separator keep the sum-of-source
 ceiling and return `text=None`. Calls with a `ContextSource` or separator return a fully measured
-`text` containing the active prefixes and separators. Every local span still indexes only its
-source's original evidence. Formatting added later by the caller is outside this measurement.
+`text` containing the active prefixes, suffixes, and separators. Every local span still indexes
+only its source's original evidence. Formatting added later by the caller is outside this
+measurement.
 
 ## What source fidelity means
 

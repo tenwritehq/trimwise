@@ -267,7 +267,7 @@ class Trimmer:
         """Trim many distinct sources under one shared output limit.
 
         Args:
-            sources: Source strings or prefixed context sources sharing the limit.
+            sources: Source strings or wrapped context sources sharing the limit.
             limit: Maximum evidence or rendered-context size in ``unit``.
             unit: Token, whitespace-word, or code-point character budget.
             strategy: Structural, lexical, semantic, hybrid, or automatic ranking.
@@ -317,7 +317,7 @@ class Trimmer:
         Cancellation propagates to that callback, but cannot stop worker work already running.
 
         Args:
-            sources: Source strings or prefixed context sources sharing the limit.
+            sources: Source strings or wrapped context sources sharing the limit.
             limit: Maximum evidence or rendered-context size in ``unit``.
             unit: Token, whitespace-word, or code-point character budget.
             strategy: Structural, lexical, semantic, hybrid, or automatic ranking.
@@ -890,7 +890,7 @@ def _snapshot_sources(
         Stable evidence strings and optional wrapper-aware rendering settings.
 
     Raises:
-        TypeError: If a source, prefix, or separator has an unsupported type.
+        TypeError: If a source, wrapper, or separator has an unsupported type.
     """
     if isinstance(sources, str) or not isinstance(sources, Sequence):
         raise TypeError("sources must be a sequence of strings or ContextSource values")
@@ -899,20 +899,29 @@ def _snapshot_sources(
     snapshot = tuple(sources)
     texts: list[str] = []
     prefixes: list[str] = []
+    suffixes: list[str] = []
     rendered = separator is not None
     for source in snapshot:
         if isinstance(source, str):
             texts.append(source)
             prefixes.append("")
+            suffixes.append("")
             continue
         if not isinstance(source, ContextSource):
             raise TypeError("sources must contain only strings or ContextSource values")
-        if not isinstance(source.text, str) or not isinstance(source.prefix, str):
-            raise TypeError("ContextSource text and prefix must be strings")
+        if (
+            not isinstance(source.text, str)
+            or not isinstance(source.prefix, str)
+            or not isinstance(source.suffix, str)
+        ):
+            raise TypeError("ContextSource text, prefix, and suffix must be strings")
         texts.append(source.text)
         prefixes.append(source.prefix)
+        suffixes.append(source.suffix)
         rendered = True
-    rendering = _ContextRendering(tuple(prefixes), separator or "") if rendered else None
+    rendering = (
+        _ContextRendering(tuple(prefixes), tuple(suffixes), separator or "") if rendered else None
+    )
     return tuple(texts), rendering
 
 

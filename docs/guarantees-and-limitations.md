@@ -44,8 +44,9 @@ measure(result.text) = result.output_count
 result.output_count <= result.limit
 ```
 
-The complete measurement includes prefixes only for contributing sources and separators only
-between them. Per-source rows and spans continue to describe the retained source evidence.
+The complete measurement includes prefixes and suffixes only for contributing sources and
+separators only between them. Per-source rows and spans continue to describe the retained source
+evidence.
 
 The guarantee uses the requested measurement rule:
 
@@ -64,10 +65,10 @@ for unit, limit in (("tokens", 30), ("words", 20), ("characters", 100)):
 ```
 
 For a single-source `TrimResult`, this guarantee applies to `result.text`, not to the larger prompt
-around it. For a context result, prefixes and separators supplied through the context API are
-included; formatting added afterward is not. Instructions, examples, tool definitions, output
-schemas, and the model's answer still need their own context space. Measure the completed prompt and
-reserve room when its whole-token ceiling must be exact.
+around it. For a context result, source wrapper text and separators supplied through the context
+API are included; formatting added afterward is not. Instructions, examples, tool definitions,
+output schemas, and the model's answer still need their own context space. Measure the completed
+prompt and reserve room when its whole-token ceiling must be exact.
 
 ### Input that already fits is returned exactly
 
@@ -115,9 +116,9 @@ unimportant.
 
 ### Content takes priority over omission markers
 
-Trimwise first verifies that retained source fragments and required separators fit. It then tries
-to add leading, internal, and trailing omission markers in source-gap order. A marker that would
-break the budget is omitted rather than displacing retained evidence.
+Trimwise first verifies that retained source fragments, conditional wrappers, and required
+separators fit. It then tries to add leading, internal, and trailing omission markers in source-gap
+order. A marker that would break the budget is omitted rather than displacing retained evidence.
 
 ```python
 from trimwise import TrimConfig, Trimmer
@@ -274,7 +275,8 @@ This creates several boundaries:
 - A tiny token budget may end inside a natural-language idea.
 - Character budgets count code points, not user-perceived grapheme clusters or encoded bytes.
 - Word budgets use whitespace splitting, not linguistic word segmentation.
-- Custom token counters may require many prefix measurements on the rare exact-fallback path.
+- A source suffix can require multiple built-in or custom token measurements on the rare
+  exact-fallback path.
 
 For a genuinely closed code fence, Trimwise keeps the original opening and closing fence while
 removing body lines only when the fence shell itself fits. If the shell is too large, ordinary
@@ -393,20 +395,20 @@ Trimwise deliberately leaves several decisions with the application:
 
 | Responsibility | What the caller should do |
 | --- | --- |
-| Complete prompt budget | Use `ContextSource` for budgeted per-source prefixes; reserve room for surrounding instructions, examples, tools, and model output |
+| Complete prompt budget | Use `ContextSource` for budgeted per-source opening and closing text; reserve room for surrounding instructions, examples, tools, and model output |
 | Source identity | Keep document IDs, authors, timestamps, and access controls in application data; render only the bounded labels you need and reconnect rows with `source_index` |
 | Relevance evaluation | Test downstream answers on representative documents and queries |
 | Factual verification | Check claims against original sources when accuracy matters |
 | Contradiction handling | Preserve and compare conflicting evidence explicitly |
 | Embedding operations | Own callback caching, retries, timeouts, rate limits, privacy, and concurrency |
-| Security | Treat source text and caller-supplied prefixes as untrusted and enforce tool permissions separately |
+| Security | Treat source text and caller-supplied wrapper text as untrusted and enforce tool permissions separately |
 | Tokenizer alignment | Supply a custom counter when the default encoding does not match the target model |
 
 `TrimResult.spans` exposes ordered Python-string ranges for retained source text, but it does not
 include source IDs, scores, or embeddings. Starts are inclusive, ends are exclusive, and adjacent
 ranges are merged. Overlapping ranges are never returned because candidates do not overlap.
-Generated omission markers and caller-supplied prefixes and separators have no span. Keep document
-identity alongside each input before trimming several sources.
+Generated omission markers and caller-supplied prefixes, suffixes, and separators have no span.
+Keep document identity alongside each input before trimming several sources.
 
 For a context result, each source row's spans index only the original string at its `source_index`.
 

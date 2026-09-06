@@ -119,6 +119,38 @@ class Measurer:
             return ""
         return fitting[len(prefix) :]
 
+    def fitting_wrapped_content(
+        self,
+        wrapper: tuple[str, str],
+        text: str,
+        limit: int,
+    ) -> str:
+        """Fit source content while retaining both wrapper halves in full.
+
+        Args:
+            wrapper: Exact prefix and suffix surrounding retained source content.
+            text: Source content eligible for prefix fallback.
+            limit: Maximum measured size of the complete wrapped output.
+
+        Returns:
+            Longest source prefix whose complete wrapper fits.
+        """
+        prefix, suffix = wrapper
+        if not suffix:
+            return self.fitting_prefixed_content(prefix, text, limit)
+        if self.count(prefix + text + suffix) <= limit:
+            return text
+        if self.unit is BudgetUnit.CHARACTERS:
+            available = max(0, limit - len(prefix) - len(suffix))
+            return text[:available]
+
+        # ponytail: exact reverse scan handles non-additive token boundaries; optimize only if
+        # real fallback profiles show this rare path is material.
+        for end in range(len(text) - 1, -1, -1):
+            if self.count(prefix + text[:end] + suffix) <= limit:
+                return text[:end]
+        return ""
+
     def _fitting_encoded_prefix(self, text: str, limit: int) -> str:
         """Fit a source prefix around the configured encoding's token boundary.
 
