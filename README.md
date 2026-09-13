@@ -2,218 +2,157 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/trimwise.svg)](https://pypi.org/project/trimwise/)
 
-> Query-aware compression within an exact budget.
+Need to fit a long document into a small AI prompt budget? Trimwise picks excerpts from
+across it that fit the space you set aside for source text, instead of just cutting off
+the end. Add a question to steer the choice; the selected passages keep their original
+wording and order.
 
-[Documentation](https://trimwise.readthedocs.io/en/latest/) ·
-[Getting started](https://trimwise.readthedocs.io/en/latest/getting-started/) ·
-[API reference](https://trimwise.readthedocs.io/en/latest/api-reference/) ·
-[PyPI](https://pypi.org/project/trimwise/)
+[Documentation](https://trimwise.readthedocs.io/en/latest/) · [PyPI](https://pypi.org/project/trimwise/)
 
-<p align="center">
-  <img src="./assets/readme/provenance.svg" width="100%" alt="Trimwise selects useful exact source fragments and returns source-order output with original-input spans under an exact budget.">
-</p>
+## Try it
 
-Trimwise is built for query-aware prompt assembly. Given a question, it selects the most useful
-exact source evidence from documents, blog posts, search results, logs, and tool output under an
-exact token, word, or character budget. Instead of keeping only `text[:N]`, it can select complete
-fragments from across the source and reduce obvious repetition.
+Install Trimwise with Python 3.10–3.14:
 
-The result remains extractive: retained text comes from your input, keeps its original wording, and
-appears in source order. Trimwise does not search the web, retrieve documents, query a vector
-database, or rewrite your evidence.
+```bash
+python -m pip install trimwise
+```
 
-When no question is available, it supports queryless mode which uses bounded structural trimming for readable source
-coverage.
-
-## Getting started
-
-### Installation
-
-Trimwise supports Python 3.10 through 3.14.
-
-| What you need | `pip` | `uv` |
-| --- | --- | --- |
-| Structural, lexical, or your own embedding callback | `python -m pip install trimwise` | `uv add trimwise` |
-| Trimwise-managed semantic models on CPU | `python -m pip install "trimwise[semantic]"` | `uv add "trimwise[semantic]"` |
-| Trimwise-managed semantic models on NVIDIA GPU | `python -m pip install "trimwise[semantic-gpu]"` | `uv add "trimwise[semantic-gpu]"` |
-
-The core installation includes Markdown parsing, token measurement, lexical ranking, and vector
-scoring. It does not install FastEmbed or download an embedding model.
-
-Do not install the CPU and GPU semantic extras together. GPU use also requires compatible CUDA and
-cuDNN libraries. See [Semantic Models and Async Use](https://trimwise.readthedocs.io/en/latest/semantic-and-async/)
-for callbacks, model loading, concurrency, and GPU details.
-
-### Basic usage
+Here's the input and the question:
 
 ```python
 from trimwise import Trimmer
 
-document = """\
-# Incident report
+report = """# Incident report
 
-The service became unavailable at 09:14. Initial checks focused on the network.
+The site went down at 09:14. Initial checks focused on the network.
 
 ## Root cause
 
-The team traced the failure to an expired credential.
+An expired credential blocked the service.
 
-## Decision
+## Prevention
 
-Credentials will now rotate automatically every 30 days.
+Credentials will now rotate every 30 days.
 """
 
 result = Trimmer().trim(
-    document,
+    report,
     limit=24,
     query="What caused the outage and how will it be prevented?",
 )
-
 print(result.text)
-print(result.output_count)  # Always <= 24
-print(result.strategy)  # Strategy.LEXICAL: auto resolved from the query
-print(result.spans)  # Original-input Python-string offsets
+print(f"{result.output_count}/{result.limit} tokens")
 ```
 
-### Many sources, one shared limit
+Output from running that code:
 
-Use `trim_context()` when passages from several sources should compete for one budget. Add
-`ContextSource` wrapper text when source labels or closing delimiters must fit inside that same
-limit:
+```text
+## Root cause
+
+An expired credential blocked the service.
+
+## Prevention
+
+Credentials will now rotate every 30 days.
+
+23/24 tokens
+```
+
+The limit is a ceiling, not a target to fill. It can be measured in tokens (the default),
+words, or characters. `result.spans` also tells you where each kept piece came from in
+the original Python string.
+
+## Have more than one source?
+
+Use `trim_context()` when several sources must share one limit. This input has an initial
+report and a follow-up:
 
 ```python
 from trimwise import ContextSource, Trimmer
 
-result = Trimmer().trim_context(
-    [
-        ContextSource(
-            text=record["text"],
-            prefix=f"--- Source: {record['title']} ({record['url']}) ---\n",
-            suffix="\n--- End source ---",
-        )
-        for record in records
-    ],
-    limit=800,
-    query="Which recommendations are supported by the reports?",
-    separator="\n\n",
-)
+sources = [
+    ContextSource(
+        text="Initial checks focused on the network. The network was healthy.",
+        prefix="Incident: ",
+    ),
+    ContextSource(
+        text="A retry loop ignored backoff settings. Service recovered at 14:32 UTC.",
+        prefix="Follow-up: ",
+    ),
+]
 
-prompt_ready_context = result.text
-assert result.output_count <= result.limit
+result = Trimmer().trim_context(
+    sources,
+    limit=20,
+    query="Which retry loop caused the outage, and when did service recover?",
+)
+print(result.text)
+print(f"{result.output_count}/{result.limit} tokens")
 ```
 
-The result keeps one row per input source, including empty excerpts. A source's prefix and suffix
-are emitted together only when that source contributes evidence, and `result.text` contains the
-fully measured rendering. Your surrounding instructions and answer space remain outside this
-limit. Plain string sources still use the original evidence-only accounting. See
+Output from running that code:
+
+```text
+Follow-up: A retry loop ignored backoff settings. Service recovered at 14:32 UTC.
+20/20 tokens
+```
+
+Only the follow-up contributes to this result. You still get one result row per input source,
+including an empty row for the incident report. Source labels count toward this limit; your
+surrounding prompt instructions and answer space do not. See
 [Many Sources, One Shared Limit](https://trimwise.readthedocs.io/en/latest/multi-source-context/)
-for both modes and the difference from `atrim_many()`.
+for the full behavior.
 
-Depending on the trimming strategy you want to use, find the corresponding starter code example - [auto](https://trimwise.readthedocs.io/en/latest/strategies/#auto-the-lightweight-default),
-[structural](https://trimwise.readthedocs.io/en/latest/strategies/#structural-cover-a-document-without-a-query), [lexical](https://trimwise.readthedocs.io/en/latest/strategies/#lexical-preserve-exact-query-evidence),
-[semantic](https://trimwise.readthedocs.io/en/latest/strategies/#semantic-preserve-meaning-and-paraphrases) and [hyrbid](https://trimwise.readthedocs.io/en/latest/strategies/#hybrid-preserve-exact-terms-and-broader-meaning).
+## Which strategy should you use?
 
-## Available trimming strategies
+Start with the default, `auto`. With a question, it matches relevant words (`lexical`).
+Without one, it makes a broader document excerpt (`structural`). Neither downloads a model.
 
-| Strategy | Use it when | What it prioritizes |
-| --- | --- | --- |
-| `auto` | You want a safe default | `structural` without a query; `lexical` with one |
-| `structural` | No question or task is available | Document centrality, section coverage, and fitting beginning/end units |
-| `lexical` | Exact names, IDs, errors, URLs, or phrases matter | BM25 matches between the query and source fragments |
-| `semantic` | The source may express the answer with different words or another supported language | Embedding similarity between the query and candidates |
-| `hybrid` | Literal evidence and paraphrases both matter | An equal blend of normalized BM25 and semantic scores |
+If the answer may use different wording from your question, try `semantic`. `hybrid` combines
+word matching and semantic matching. Those two need your own embedding callback or the
+[optional semantic model](https://trimwise.readthedocs.io/en/latest/semantic-and-async/).
+The [strategy guide](https://trimwise.readthedocs.io/en/latest/strategies/) has examples and
+tradeoffs.
 
-`lexical`, `semantic`, and `hybrid` require a nonblank query. Semantic and hybrid calls require
-either your own embedding callback or one of the FastEmbed extras.
+## What Trimwise does—and doesn't
 
-Query-aware strategies may stop below the requested limit when the remaining candidates appear
-weakly related. The limit means “at most,” not “fill every token with progressively less useful
-text.”
+Trimwise works on text you already have. It does not search for documents or rewrite them.
+Unlike token-pruning compressors, it keeps readable source pieces; see the
+[research comparison](https://trimwise.readthedocs.io/en/latest/research-foundations/#how-trimwise-compares-with-model-based-compression)
+for the tradeoff.
 
-Read [Strategies](https://trimwise.readthedocs.io/en/latest/strategies/) for examples, scoring
-behavior, and practical tradeoffs.
+A tight limit can leave out evidence needed to answer a question. The limit applies to
+Trimwise's returned text, not your entire prompt, so leave room for instructions and the
+model's answer. Read the [guarantees and limitations](https://trimwise.readthedocs.io/en/latest/guarantees-and-limitations/)
+before relying on an excerpt for a high-stakes task.
 
-## How Trimwise compares with prompt compressors
+## How it did in one test
 
-Trimwise and model-based prompt compressors shorten text at different levels. Trimwise chooses
-complete source fragments before prompt assembly. Methods such as LLMLingua can remove individual
-tokens from an already assembled prompt, which can achieve much denser compression but may leave
-text that is harder for people to read or trace.
+In a frozen 160-case test using the published 0.2.0 release, Trimwise Hybrid kept every
+annotated source passage in 66.9% of cases at a 512-token limit. This measures passage
+survival on that test—not answer quality or performance on every document. The
+[benchmark report](https://trimwise.readthedocs.io/en/latest/benchmark/) explains the
+setup, comparisons, and limits.
 
-| Approach | What it keeps or removes | Extra compression model | Best fit |
-| --- | --- | --- | --- |
-| Prefix slicing | Keeps only the beginning | No | Lowest possible overhead when missing later evidence is acceptable |
-| Trimwise | Selects complete source blocks, sentences, or lines and restores source order | No for structural or lexical use | Readable, source-backed excerpts with an exact final budget |
-| [LLMLingua](https://aclanthology.org/2023.emnlp-main.825/) family | Removes tokens throughout a prompt; LongLLMLingua also uses the query and long-context position | Yes | Aggressive compression when downstream model performance matters more than human-readable excerpts |
-| [Selective Context](https://arxiv.org/abs/2310.06201) | Removes low-self-information tokens, phrases, or sentences | Yes | Pruning predictable language using a causal language model |
-| [RECOMP](https://proceedings.iclr.cc/paper_files/paper/2024/hash/bda88ed2892f5e61c9a9bf215c566913-Abstract-Conference.html) | Selects sentences or generates a summary from retrieved documents | Yes, with trained compressors | Compressing RAG results for a downstream task, including abstractive synthesis when allowed |
+![Complete annotated source-passage survival by output-token limit on 160 position-controlled cases, comparing Trimwise with evaluated adapters.](./assets/readme/query-aware-benchmark.svg)
 
-The LLMLingua family can preserve more task-relevant information per token at aggressive ratios.
-Its remaining tokens still come from the prompt, but complete sentence and block boundaries are not
-preserved. RECOMP's extractive path keeps selected sentences; its abstractive path can combine
-information across documents but no longer returns only original wording.
+In a separate 93-case short-answer check at 256 tokens, GPT-5.4 Nano matched 43 reference
+answers with Hybrid's output, versus 41 with the full source (46.2% vs. 44.1%). GPT-5.4 Mini
+scored 46.2% vs. 45.2%; GPT-5.6 Luna tied at 45.2%. Each context received one model response.
+This automatic text match is a useful diagnostic, not a human correctness judgment or proof
+that trimming generally improves answers.
 
-Choose Trimwise when evidence must stay readable, source fragments must remain verbatim and ordered,
-or adding another compression model is undesirable. Choose a model-based compressor when maximum
-compression density is more important and you can evaluate its effect on your own downstream task.
-The methods can also be chained: select broad evidence with Trimwise, then apply token-level
-compression. After the second step, Trimwise's whole-fragment and source-layout guarantees no
-longer describe the final prompt.
+![Answer-match rate on 93 cases across context limits for GPT-5.4 Mini, GPT-5.4 Nano, and GPT-5.6 Luna. At 256 tokens, Nano scored 46.2% with Trimwise Hybrid versus 44.1% with the full source.](./benchmark/reports/query-aware/answer_pass.png)
 
-See the detailed [research comparison](https://trimwise.readthedocs.io/en/latest/research-foundations/#how-trimwise-compares-with-model-based-compression)
-for the differences among LLMLingua, LongLLMLingua, LLMLingua-2, Selective Context, and RECOMP.
+[Open the full-size answer-match graph](./benchmark/reports/query-aware/answer_pass.png) ·
+[How the answer check was scored](https://trimwise.readthedocs.io/en/latest/benchmark/#downstream-answer-diagnostic)
 
-## Query-aware benchmark results
+At 512 tokens, Hybrid's median warm trim time was 42.8 ms on the benchmark machine
+(Lexical: 6.4 ms). Those timings exclude cold model loading and are not portable speed
+guarantees.
 
-On a position-controlled 160-case benchmark, each method received the same source and question.
-The primary result is **normalized contiguous required-span containment**: every annotated
-source span must occur as one contiguous normalized passage, prohibited text must be absent, and
-the output must fit the budget. Trimwise Lexical leads at 128 tokens; Trimwise Hybrid leads from
-256 through 1,024 tokens against the evaluated adapters.
-
-<p align="center">
-  <img src="./assets/readme/query-aware-benchmark.svg" width="100%" alt="Normalized contiguous required-span containment by output-token budget on 160 position-controlled cases. Trimwise Lexical leads at 128 tokens and Trimwise Hybrid leads at 256, 512, and 1,024 tokens against the three evaluated adapters.">
-</p>
-
-| Evaluated method or adapter | 128 | 256 | 512 | 1,024 |
-| --- | ---: | ---: | ---: | ---: |
-| **Trimwise Lexical** | **52.5%** | 60.0% | 61.9% | 66.2% |
-| **Trimwise Hybrid** | 49.4% | **62.5%** | **66.9%** | **69.4%** |
-| RECOMP NQ extractive sentence adapter | 27.5% | 30.6% | 35.0% | 35.0% |
-| LLMLingua GPT-2 token-pruning adapter | 3.1% | 7.5% | 13.8% | 22.5% |
-| LongLLMLingua GPT-2 single-context adapter | 0.6% | 4.4% | 6.9% | 16.2% |
-
-| Trimwise Hybrid at 512 tokens | Observed result |
-| --- | --- |
-| Median warm compression at 512 tokens | **42.8 ms** |
-| Median input-token reduction at 512 tokens | **84.7%** |
-
-The local ordered 80% and 90% sensitivity checks preserve the same ordering at every budget. This
-is a post-hoc robustness analysis over frozen outputs: it measures complete source-span survival,
-not semantic sufficiency, generated-answer quality, or every configuration in the compared method
-families. Latency is hardware-specific and excludes cold loading and thermal cooldown. The
-[strict metric protocol](./benchmark/data/manifests/evidence_sensitivity_v1_2_protocol.md),
-[frozen manifest](./benchmark/data/manifests/evidence_sensitivity_v1_2_manifest.json), and
-[full sensitivity summary](./benchmark/results/position_controlled_160_evidence_sensitivity_v1_2_summary.csv)
-record the metric, inputs, and all results. The legacy bag-of-token case-pass result remains
-available as a [historical diagnostic](./benchmark/results/position_controlled_160_summary.csv).
-The local benchmark environment resolves the published 0.2.0 release from PyPI.
-
-An exploratory component study keeps Hybrid fixed while removing MMR, the adaptive evidence cutoff,
-or Markdown-aware segments. On this suite, the cutoff and structural segments help at 128 tokens;
-MMR shows no consistent strict-retention benefit. The full protocol, uncertainty intervals, and
-limits are in the [benchmark documentation](https://trimwise.readthedocs.io/en/latest/benchmark/).
-
-## Documentation
-
-- [Getting Started](https://trimwise.readthedocs.io/en/latest/getting-started/)
-- [Many Sources, One Shared Limit](https://trimwise.readthedocs.io/en/latest/multi-source-context/)
-- [Strategies](https://trimwise.readthedocs.io/en/latest/strategies/)
-- [Semantic Models and Async Use](https://trimwise.readthedocs.io/en/latest/semantic-and-async/)
-- [Configuration and API](https://trimwise.readthedocs.io/en/latest/configuration-and-api/)
-- [How Trimwise Works](https://trimwise.readthedocs.io/en/latest/how-it-works/)
-- [Guarantees and Limitations](https://trimwise.readthedocs.io/en/latest/guarantees-and-limitations/)
-- [Research Foundations](https://trimwise.readthedocs.io/en/latest/research-foundations/)
-- [API Reference](https://trimwise.readthedocs.io/en/latest/api-reference/)
+For more detail, see [Getting Started](https://trimwise.readthedocs.io/en/latest/getting-started/),
+[Configuration and API](https://trimwise.readthedocs.io/en/latest/configuration-and-api/), or the
+[API Reference](https://trimwise.readthedocs.io/en/latest/api-reference/).
 
 Trimwise is available under the [MIT License](LICENSE) and maintained by [AATBIT Labs](https://aatbit.com).
