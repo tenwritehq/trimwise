@@ -136,6 +136,16 @@ setup, comparisons, and limits.
 
 ![Complete annotated source-passage survival by output-token limit on 160 position-controlled cases, comparing Trimwise with evaluated adapters.](./assets/readme/query-aware-benchmark.svg)
 
+In a separate 93-case short-answer check at 256 tokens, GPT-5.4 Nano matched 43 reference
+answers with Hybrid's output, versus 41 with the full source (46.2% vs. 44.1%). GPT-5.4 Mini
+scored 46.2% vs. 45.2%; GPT-5.6 Luna tied at 45.2%. Each context received one model response.
+This automatic text match is a useful diagnostic, not a human correctness judgment or proof
+that trimming generally improves answers.
+
+At 512 tokens, Hybrid's median warm trim time was 42.8 ms on the benchmark machine
+(Lexical: 6.4 ms). Those timings exclude cold model loading and are not portable speed
+guarantees.
+
 For more detail, see [Getting Started](https://trimwise.readthedocs.io/en/latest/getting-started/),
 [Configuration and API](https://trimwise.readthedocs.io/en/latest/configuration-and-api/), or the
 [API Reference](https://trimwise.readthedocs.io/en/latest/api-reference/).
