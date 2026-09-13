@@ -142,6 +142,11 @@ scored 46.2% vs. 45.2%; GPT-5.6 Luna tied at 45.2%. Each context received one mo
 This automatic text match is a useful diagnostic, not a human correctness judgment or proof
 that trimming generally improves answers.
 
+![Answer-match rate on 93 cases across context limits for GPT-5.4 Mini, GPT-5.4 Nano, and GPT-5.6 Luna. At 256 tokens, Nano scored 46.2% with Trimwise Hybrid versus 44.1% with the full source.](./benchmark/reports/query-aware/answer_pass.png)
+
+[Open the full-size answer-match graph](./benchmark/reports/query-aware/answer_pass.png) ·
+[How the answer check was scored](https://trimwise.readthedocs.io/en/latest/benchmark/#downstream-answer-diagnostic)
+
 At 512 tokens, Hybrid's median warm trim time was 42.8 ms on the benchmark machine
 (Lexical: 6.4 ms). Those timings exclude cold model loading and are not portable speed
 guarantees.
