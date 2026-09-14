@@ -7,9 +7,11 @@ across it that fit the space you set aside for source text, instead of just cutt
 the end. Add a question to steer the choice; the selected passages keep their original
 wording and order.
 
-[Documentation](https://trimwise.readthedocs.io/en/latest/) · [PyPI](https://pypi.org/project/trimwise/)
+[Documentation](https://trimwise.readthedocs.io/en/latest/) · [PyPI](https://pypi.org/project/trimwise/) · [Forever free public API](https://trimwise.aatbit.com)
 
 ## Try it
+
+> You can use Trimwise without installing it via the **forever free** public API - https://trimwise.aatbit.com
 
 Install Trimwise with Python 3.10–3.14:
 
