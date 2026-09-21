@@ -191,6 +191,14 @@ callback is awaited on the calling event loop.
 The underlying synchronous counter, callback, or FastEmbed inference may continue after the
 awaiting task is cancelled.
 
+### Built-in tracing excludes source content
+
+Optional OpenTelemetry spans contain bounded operation metadata such as strategy, unit, counts,
+and source or batch size. Trimwise does not attach source text, output text, queries, context
+wrappers, exception messages, or stack traces. The application still owns any attributes added to
+parent spans or spans created inside callbacks. See [Observability](observability.md) for the exact
+attribute contract.
+
 ## Best-effort goals
 
 ### Structural mode aims for document-wide coverage
@@ -439,4 +447,5 @@ starting point; representative downstream evaluation decides whether they work f
 - Inspect the pipeline in [How Trimwise Works](how-it-works.md).
 - Configure backends in [Semantic Models and Async Usage](semantic-and-async.md).
 - Review the public contract in [Configuration and API Reference](configuration-and-api.md).
+- Add optional tracing with [Observability](observability.md).
 - Track deferred work in the [roadmap](https://github.com/tenwritehq/trimwise/blob/main/ROADMAP.md).

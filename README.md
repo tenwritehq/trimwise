@@ -123,6 +123,16 @@ Unlike token-pruning compressors, it keeps readable source pieces; see the
 [research comparison](https://trimwise.readthedocs.io/en/latest/research-foundations/#how-trimwise-compares-with-model-based-compression)
 for the tradeoff.
 
+## Observe trimming in your application
+
+Trimwise creates OpenTelemetry spans for its public operations when your application configures
+an OpenTelemetry SDK. Without an SDK provider, the API stays a no-op and sends nothing. Your
+application keeps control of exporters, collector endpoints, credentials, resources, sampling,
+batching, and shutdown; none of those settings are added to `TrimConfig`.
+
+See [Observability](https://trimwise.readthedocs.io/en/latest/observability/) for OTLP/gRPC and
+OTLP/HTTP setup, span names and attributes, trace parenting, and privacy guarantees.
+
 A tight limit can leave out evidence needed to answer a question. The limit applies to
 Trimwise's returned text, not your entire prompt, so leave room for instructions and the
 model's answer. Read the [guarantees and limitations](https://trimwise.readthedocs.io/en/latest/guarantees-and-limitations/)

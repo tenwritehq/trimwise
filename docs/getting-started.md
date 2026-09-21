@@ -436,4 +436,5 @@ not factual truth.
 - Trim several sources with [one shared limit](multi-source-context.md).
 - Review the current [strategy guide](https://github.com/tenwritehq/trimwise#which-strategy-should-i-use).
 - Learn about [embedding callbacks and FastEmbed](https://github.com/tenwritehq/trimwise#semantic-models).
+- Add Trimwise to application traces with [OpenTelemetry](observability.md).
 - See the [public package on PyPI](https://pypi.org/project/trimwise/).

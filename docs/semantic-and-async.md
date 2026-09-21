@@ -380,6 +380,11 @@ For CPU-only structural or lexical work, async calls can overlap at the worker-t
 FastEmbed, calls sharing one `Trimmer` still wait on that instance's model lock. `atrim_many()`
 does not add cross-call background batching or make parallel CPU inference requests.
 
+When the application configures OpenTelemetry, the public operation span remains current across
+these worker-thread and async-callback boundaries. Spans created inside an embedding callback can
+therefore appear below the Trimwise span. See [Observability](observability.md) for setup, span
+names, and the privacy contract.
+
 ## Cancellation
 
 Cancellation behavior depends on what `atrim()`, `atrim_context()`, or `atrim_many()` is awaiting:
@@ -469,3 +474,4 @@ compression ratios.
 - Follow the [Getting Started guide](getting-started.md).
 - Compare all selection modes in [Choosing a Strategy](strategies.md).
 - Review planned semantic quality work in the [roadmap](https://github.com/tenwritehq/trimwise/blob/main/ROADMAP.md).
+- Add optional tracing with [Observability](observability.md).
