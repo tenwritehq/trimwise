@@ -69,7 +69,7 @@ jobs:
           wheel-test/bin/python -c
           "import asyncio, importlib.metadata;
           from trimwise import ContextSource, ContextSourceResult, ContextTrimResult, Trimmer;
-          assert importlib.metadata.version('trimwise') == '0.6.0';
+          assert importlib.metadata.version('trimwise') == '0.7.0';
           sources = [ContextSource('a', '<s>', '</s>')];
           sync_result = Trimmer().trim_context(sources, 8, unit='characters');
           async_result = asyncio.run(Trimmer().atrim_context(sources, 8, unit='characters'));

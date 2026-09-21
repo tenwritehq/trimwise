@@ -428,6 +428,10 @@ Most applications should keep the defaults. Configuration changes affect every t
 through that `Trimmer`; per-call choices such as strategy, query, limit, unit, and custom token
 counter remain method arguments.
 
+OpenTelemetry exporters, endpoints, credentials, resources, and sampling are application runtime
+settings, so they are intentionally absent from `TrimConfig`. See [Observability](observability.md)
+for optional tracing setup and the emitted span contract.
+
 ### Configuration validation
 
 | Setting | Accepted boundary |
@@ -667,3 +671,4 @@ style, MMR balance, and the managed semantic backend.
 - Follow the [Getting Started guide](getting-started.md).
 - Compare ranking behavior in [Choosing a Strategy](strategies.md).
 - Configure embeddings with [Semantic Models and Async Usage](semantic-and-async.md).
+- Add optional tracing with [Observability](observability.md).

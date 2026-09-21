@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "trimwise"
-version = "0.6.0"
+version = "0.7.0"
 description = "High-signal text trimming for better LLM prompts."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -32,6 +32,7 @@ classifiers = [
 dependencies = [
     "markdown-it-py>=4.2,<5",
     "numpy>=1.26,<3",
+    "opentelemetry-api>=1.44,<2",
     "tiktoken>=0.13,<1",
 ]
 
@@ -41,6 +42,7 @@ semantic-gpu = ["fastembed-gpu>=0.8,<1"]
 dev = [
     "build>=1.5,<2",
     "mypy>=2.3,<3",
+    "opentelemetry-sdk>=1.44,<2",
     "pytest>=9.1,<10",
     "pytest-asyncio>=1.4,<2",
     "pytest-cov>=7.1,<8",

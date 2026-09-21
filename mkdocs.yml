@@ -18,6 +18,7 @@ nav:
   - How it works: how-it-works.md
   - Strategies: strategies.md
   - Semantic models and async: semantic-and-async.md
+  - Observability: observability.md
   - Configuration and API: configuration-and-api.md
   - Guarantees and limitations: guarantees-and-limitations.md
   - Research foundations: research-foundations.md

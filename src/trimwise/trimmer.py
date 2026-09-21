@@ -57,6 +57,12 @@ from trimwise.semantic import (
     invoke_async_embedding_callback,
     normalize_callback_output,
 )
+from trimwise.telemetry import (
+    _record_batch_result,
+    _record_result,
+    _request_attributes,
+    _span,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,7 +209,10 @@ class Trimmer:
             ValueError: If an argument value or strategy/query combination is invalid.
             SemanticBackendError: If an explicitly requested semantic backend fails.
         """
-        return self._trim(_TrimArguments(text, limit, unit, strategy, query, token_counter))
+        with _span("trimwise.trim", _request_attributes(limit, unit, strategy)) as span:
+            result = self._trim(_TrimArguments(text, limit, unit, strategy, query, token_counter))
+            _record_result(span, result)
+            return result
 
     async def atrim(
         self,
@@ -236,21 +245,35 @@ class Trimmer:
             ValueError: If an argument value or strategy/query combination is invalid.
             SemanticBackendError: If an explicitly requested semantic backend fails.
         """
-        arguments = _TrimArguments(text, limit, unit, strategy, query, token_counter)
-        callback = self._async_embedding_callback
-        if callback is None:
-            return await asyncio.to_thread(self._trim, arguments)
-
-        prepared = await asyncio.to_thread(self._prepare, arguments)
-        if isinstance(prepared, TrimResult):
-            return prepared
-        if prepared.request.strategy not in {Strategy.SEMANTIC, Strategy.HYBRID}:
-            return await asyncio.to_thread(self._complete, prepared)
-
-        query_text = prepared.request.query or ""
-        passages = await asyncio.to_thread(_contextual_ranking_texts, prepared.segments)
-        output = await invoke_async_embedding_callback(callback, query_text, passages)
-        return await asyncio.to_thread(self._complete_with_embedding_output, prepared, output)
+        with _span("trimwise.trim", _request_attributes(limit, unit, strategy)) as span:
+            arguments = _TrimArguments(text, limit, unit, strategy, query, token_counter)
+            callback = self._async_embedding_callback
+            if callback is None:
+                result = await asyncio.to_thread(self._trim, arguments)
+            else:
+                prepared = await asyncio.to_thread(self._prepare, arguments)
+                if isinstance(prepared, TrimResult):
+                    result = prepared
+                elif prepared.request.strategy not in {Strategy.SEMANTIC, Strategy.HYBRID}:
+                    result = await asyncio.to_thread(self._complete, prepared)
+                else:
+                    query_text = prepared.request.query or ""
+                    passages = await asyncio.to_thread(
+                        _contextual_ranking_texts,
+                        prepared.segments,
+                    )
+                    output = await invoke_async_embedding_callback(
+                        callback,
+                        query_text,
+                        passages,
+                    )
+                    result = await asyncio.to_thread(
+                        self._complete_with_embedding_output,
+                        prepared,
+                        output,
+                    )
+            _record_result(span, result)
+            return result
 
     def trim_context(
         self,
@@ -285,19 +308,22 @@ class Trimmer:
             ValueError: If an argument value or strategy/query combination is invalid.
             SemanticBackendError: If an explicitly requested semantic backend fails.
         """
-        source_snapshot, rendering = _snapshot_sources(sources, separator)
-        _validate_deduplicate(deduplicate)
-        arguments = _ContextArguments(
-            source_snapshot,
-            limit,
-            unit,
-            strategy,
-            query,
-            token_counter,
-            deduplicate,
-            rendering,
-        )
-        return self._trim_context(arguments)
+        with _span("trimwise.trim_context", _request_attributes(limit, unit, strategy)) as span:
+            source_snapshot, rendering = _snapshot_sources(sources, separator)
+            _validate_deduplicate(deduplicate)
+            arguments = _ContextArguments(
+                source_snapshot,
+                limit,
+                unit,
+                strategy,
+                query,
+                token_counter,
+                deduplicate,
+                rendering,
+            )
+            result = self._trim_context(arguments)
+            _record_result(span, result)
+            return result
 
     async def atrim_context(
         self,
@@ -335,45 +361,51 @@ class Trimmer:
             ValueError: If an argument value or strategy/query combination is invalid.
             SemanticBackendError: If an explicitly requested semantic backend fails.
         """
-        source_snapshot, rendering = _snapshot_sources(sources, separator)
-        _validate_deduplicate(deduplicate)
-        arguments = _ContextArguments(
-            source_snapshot,
-            limit,
-            unit,
-            strategy,
-            query,
-            token_counter,
-            deduplicate,
-            rendering,
-        )
-        callback = self._async_embedding_callback
-        if callback is None:
-            return await asyncio.to_thread(self._trim_context, arguments)
-
-        prepared = await asyncio.to_thread(self._prepare_context, arguments)
-        if isinstance(prepared, ContextTrimResult):
-            return prepared
-        if prepared.request.strategy not in {Strategy.SEMANTIC, Strategy.HYBRID}:
-            return await asyncio.to_thread(self._complete_context, prepared)
-
-        passages = await asyncio.to_thread(_contextual_ranking_texts, prepared.segments)
-        batch = await asyncio.to_thread(
-            _prepare_passage_batch,
-            passages,
-            prepared.request.deduplicate,
-        )
-        output = await invoke_async_embedding_callback(
-            callback,
-            prepared.request.query or "",
-            batch.passages,
-        )
-        return await asyncio.to_thread(
-            self._complete_context_with_embedding_output,
-            prepared,
-            batch,
-            output,
-        )
+        with _span("trimwise.trim_context", _request_attributes(limit, unit, strategy)) as span:
+            source_snapshot, rendering = _snapshot_sources(sources, separator)
+            _validate_deduplicate(deduplicate)
+            arguments = _ContextArguments(
+                source_snapshot,
+                limit,
+                unit,
+                strategy,
+                query,
+                token_counter,
+                deduplicate,
+                rendering,
+            )
+            callback = self._async_embedding_callback
+            if callback is None:
+                result = await asyncio.to_thread(self._trim_context, arguments)
+            else:
+                prepared = await asyncio.to_thread(self._prepare_context, arguments)
+                if isinstance(prepared, ContextTrimResult):
+                    result = prepared
+                elif prepared.request.strategy not in {Strategy.SEMANTIC, Strategy.HYBRID}:
+                    result = await asyncio.to_thread(self._complete_context, prepared)
+                else:
+                    passages = await asyncio.to_thread(
+                        _contextual_ranking_texts,
+                        prepared.segments,
+                    )
+                    batch = await asyncio.to_thread(
+                        _prepare_passage_batch,
+                        passages,
+                        prepared.request.deduplicate,
+                    )
+                    output = await invoke_async_embedding_callback(
+                        callback,
+                        prepared.request.query or "",
+                        batch.passages,
+                    )
+                    result = await asyncio.to_thread(
+                        self._complete_context_with_embedding_output,
+                        prepared,
+                        batch,
+                        output,
+                    )
+            _record_result(span, result)
+            return result
 
     async def atrim_many(
         self,
@@ -399,6 +431,25 @@ class Trimmer:
             TypeError: If an input is not a ``TrimInput`` or an argument has an unsupported type.
             ValueError: If an input has an invalid value or strategy/query combination.
             SemanticBackendError: If an explicitly requested semantic backend fails.
+        """
+        with _span("trimwise.trim_many", {}) as span:
+            results = await self._atrim_many(inputs, deduplicate)
+            _record_batch_result(span, results)
+            return results
+
+    async def _atrim_many(
+        self,
+        inputs: Sequence[TrimInput],
+        deduplicate: bool,
+    ) -> list[TrimResult]:
+        """Run the validated batch implementation inside its public operation span.
+
+        Args:
+            inputs: Independent trim requests returned in the supplied order.
+            deduplicate: Whether exact contextual passages share one embedding.
+
+        Returns:
+            One measured extractive result per input, in input order.
         """
         if not isinstance(deduplicate, bool):
             raise TypeError("deduplicate must be a bool")
