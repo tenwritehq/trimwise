@@ -1,0 +1,4 @@
+gradio==6.29.1
+trimwise[semantic]==0.7.0
+tiktoken==0.14.0
+fastembed==0.8.1
