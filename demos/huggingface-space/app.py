@@ -557,6 +557,15 @@ def build_app() -> gr.Blocks:
     """
     MEASURER.count("")
     with gr.Blocks(title="Trimwise | Context workbench", analytics_enabled=False) as demo:
+        if os.environ.get("SPACES_ZERO_GPU") == "1":
+            import spaces
+
+            @spaces.GPU(duration=1)
+            def zero_gpu_registration() -> None:
+                """Provide ZeroGPU's required handler without wrapping CPU trimming."""
+
+            # ZeroGPU scans registered handlers; normal requests never invoke this one.
+            gr.Button(visible=False).click(zero_gpu_registration, api_visibility="private")
         gr.HTML(
             '<header class="workbench-heading"><div class="brand">'
             f"{BRAND_MARK}<h1>trim<span>wise</span></h1>"
@@ -666,7 +675,8 @@ def workbench_theme() -> gr.themes.Base:
 
 
 if __name__ == "__main__":
-    build_app().launch(
+    demo = build_app()
+    demo.launch(
         server_name="0.0.0.0" if os.environ.get("SPACE_ID") else "127.0.0.1",
         share=False,
         show_error=False,

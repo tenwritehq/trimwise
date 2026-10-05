@@ -8,7 +8,8 @@ import math
 import unittest
 from collections.abc import Sequence
 from html import escape
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import tiktoken
 from app import (
@@ -356,6 +357,30 @@ class InputLimitTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(inspect.iscoroutinefunction(fn.fn))
             self.assertEqual(fn.concurrency_id, "trimwise_cpu")
             self.assertEqual(fn.concurrency_limit, CONCURRENCY)
+        demo.close()
+
+    async def test_zero_gpu_registers_only_a_private_unused_handler(self) -> None:
+        """Satisfy ZeroGPU startup without decorating either CPU trim handler."""
+
+        def decorate(function: object) -> object:
+            """Preserve the handler while recording platform decorator registration."""
+            return function
+
+        gpu = Mock(return_value=decorate)
+        with (
+            patch.dict("os.environ", {"SPACES_ZERO_GPU": "1"}),
+            patch.dict("sys.modules", {"spaces": SimpleNamespace(GPU=gpu)}),
+        ):
+            demo = build_app()
+        gpu.assert_called_once_with(duration=1)
+        registration = [fn for fn in demo.fns.values() if fn.api_name == "zero_gpu_registration"]
+        self.assertEqual(len(registration), 1)
+        self.assertEqual(registration[0].api_visibility, "private")
+        trimming = [
+            fn for fn in demo.fns.values() if fn.api_name in ("trim_single", "trim_multiple")
+        ]
+        self.assertEqual(len(trimming), 2)
+        self.assertTrue(all(inspect.iscoroutinefunction(fn.fn) for fn in trimming))
         demo.close()
 
 
