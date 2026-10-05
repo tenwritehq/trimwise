@@ -5,12 +5,12 @@ colorFrom: green
 colorTo: gray
 sdk: gradio
 sdk_version: 6.29.1
-python_version: "3.11"
+python_version: "3.12.12"
 app_file: app.py
-suggested_hardware: cpu-basic
+suggested_hardware: zero-a10g
 pinned: false
 license: mit
-short_description: Try query-aware text trimming with one shared context budget.
+short_description: Query-aware text trimming with one shared context budget.
 tags:
   - text
   - context
@@ -71,8 +71,16 @@ On Windows, use `py -3.11 -m venv demos/huggingface-space/.venv` and activate wi
 
 ## Copy into a Hugging Face Space
 
-Create a separate **Gradio** Space with **CPU Basic** hardware. In a local clone of that
-Space repository, copy only these five files into its root:
+Create a separate **Gradio** Space with **ZeroGPU** hardware under an eligible personal
+account. The hosted runtime uses Python 3.12.12; local Python 3.11 remains supported.
+[Hugging Face's ZeroGPU rules](https://huggingface.co/docs/hub/spaces-zerogpu) allow up to
+two free Spaces for accounts with a verified email that are older than 30 days.
+This demo keeps trimming and embeddings on CPU. Its hidden, private GPU handler only
+satisfies ZeroGPU's startup check; normal Trim requests never invoke it or request a GPU.
+The Space still uses one of the account's ZeroGPU slots. CPU Basic is an alternative for
+paid-plan accounts, with no hourly compute charge.
+
+In a local clone of the Space repository, copy only these five files into its root:
 
 ```bash
 cp /path/to/trimwise/demos/huggingface-space/{app.py,styles.css,requirements.txt,README.md,test_app.py} /path/to/space/
@@ -193,6 +201,7 @@ paths, selected-method dispatch, CPU model disclosure, and async/queue configura
 Semantic/Hybrid unit checks use a deterministic callback, so this suite never downloads
 weights. The same test file works in the separate Space clone.
 
-Runtime pins: Python 3.11, Gradio 6.29.1, Trimwise 0.7.0, tiktoken 0.14.0, FastEmbed 0.8.1. The top-level
+Runtime pins: local Python 3.11, hosted Python 3.12.12, Gradio 6.29.1, Trimwise 0.7.0,
+tiktoken 0.14.0, FastEmbed 0.8.1. The top-level
 dependencies are pinned; this is not a full transitive lockfile. Run the tests after any
 dependency update and before copying updates to your Space.
