@@ -1,6 +1,7 @@
 # Trimwise
 
 [![PyPI version](https://img.shields.io/pypi/v/trimwise.svg)](https://pypi.org/project/trimwise/)
+[![Trimwise API - Free Public API](https://findfreeapi.com/api/badge/trimwise-api?style=flat)](https://findfreeapi.com/?utm_source=github_badge&utm_medium=readme&utm_campaign=badge_backlink)
 
 Need to fit a long document into a small AI prompt budget? Trimwise picks excerpts from
 across it that fit the space you set aside for source text, instead of just cutting off
