@@ -15,6 +15,9 @@ nav:
   - Introduction: index.md
   - Getting started: getting-started.md
   - Multi-source context: multi-source-context.md
+  - Framework integrations:
+      - LangChain: integrations/langchain.md
+      - LlamaIndex: integrations/llama-index.md
   - How it works: how-it-works.md
   - Strategies: strategies.md
   - Semantic models and async: semantic-and-async.md
