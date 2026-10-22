@@ -42,8 +42,11 @@ compress = create_trimwise_runnable(limit=300, strategy="lexical")
 inputs = {
     "query": "What is the retry deadline?",
     "documents": [
-        Document(id="chunk-1", page_content="The retry deadline is thirty seconds.",
-                 metadata={"source": "manual.pdf", "page": 3}),
+        Document(
+            id="chunk-1",
+            page_content="The retry deadline is thirty seconds.",
+            metadata={"source": "manual.pdf", "page": 3},
+        ),
     ],
 }
 documents = compress.invoke(inputs)
