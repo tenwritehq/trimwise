@@ -1,0 +1,43 @@
+[build-system]
+requires = ["flit_core>=3.11,<5"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "trimwise-rag-example-support"
+version = "0.1.0"
+description = "Private shared PDF/UI helpers for the repository's native RAG examples."
+requires-python = ">=3.11,<3.14"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+    "gradio==6.30.0", "fastembed==0.8.0", "pypdf==6.20.1",
+    "httpx==0.28.1", "transformers==5.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.1,<10", "reportlab==5.0.1", "ruff>=0.15.21,<1", "mypy>=2.3,<3",
+    "langchain-trimwise==0.1.0", "langchain-chroma==1.1.0",
+    "llama-index-postprocessor-trimwise==0.1.0",
+]
+
+[tool.flit.module]
+name = "rag_playground"
+
+[tool.uv.sources]
+trimwise = { path = "../../..", editable = true }
+langchain-trimwise = { path = "../../langchain", editable = true }
+llama-index-postprocessor-trimwise = { path = "../../llama-index", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "../../langchain/examples/pdf-rag-playground", "../../llama-index/examples/pdf-rag-playground"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["rag_playground"]
+
+[[tool.mypy.overrides]]
+module = ["gradio.*", "fastembed.*", "transformers.*"]
+ignore_missing_imports = true

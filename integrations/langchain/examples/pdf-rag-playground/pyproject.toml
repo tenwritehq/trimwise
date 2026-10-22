@@ -1,0 +1,21 @@
+[project]
+name = "trimwise-langchain-pdf-example"
+version = "0.1.0"
+description = "Standalone native LangChain PDF RAG comparison, CPU only."
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "langchain-trimwise==0.1.0",
+    "trimwise-rag-example-support==0.1.0",
+    "langchain-chroma==1.1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.1,<10", "ruff>=0.15.21,<1", "mypy>=2.3,<3"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+trimwise = { path = "../../../..", editable = true }
+langchain-trimwise = { path = "../..", editable = true }
+trimwise-rag-example-support = { path = "../../../_example_support/pdf-rag-playground", editable = true }

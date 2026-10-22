@@ -10,6 +10,11 @@ wording and order.
 
 [Documentation](https://trimwise.readthedocs.io/en/latest/) · [PyPI](https://pypi.org/project/trimwise/) · [Forever free public API](https://trimwise.aatbit.com)
 
+Using a retrieval framework? Try the local [LangChain and LlamaIndex integrations](integrations/README.md),
+each with tests and a minimal runnable example. Try your own PDFs in the standalone
+[LangChain PDF playground](integrations/langchain/examples/pdf-rag-playground/README.md) or
+[LlamaIndex PDF playground](integrations/llama-index/examples/pdf-rag-playground/README.md).
+
 ## Try it
 
 > You can use Trimwise without installing it via the **forever free** public API - https://trimwise.aatbit.com
