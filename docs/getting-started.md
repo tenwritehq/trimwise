@@ -434,6 +434,8 @@ not factual truth.
 
 - Return to the [Trimwise overview](index.md).
 - Trim several sources with [one shared limit](multi-source-context.md).
+- Add Trimwise after retrieval with the [LangChain Runnable](integrations/langchain.md)
+  or [LlamaIndex node postprocessor](integrations/llama-index.md).
 - Review the current [strategy guide](https://github.com/tenwritehq/trimwise#which-strategy-should-i-use).
 - Learn about [embedding callbacks and FastEmbed](https://github.com/tenwritehq/trimwise#semantic-models).
 - Add Trimwise to application traces with [OpenTelemetry](observability.md).

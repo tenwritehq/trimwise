@@ -4,6 +4,9 @@
 shared allowance. It subclasses LlamaIndex's native `BaseNodePostprocessor` and
 uses Trimwise's public sync/async context APIs. Core Trimwise has no LlamaIndex dependency.
 
+Read the [Trimwise LlamaIndex guide](https://trimwise.readthedocs.io/en/latest/integrations/llama-index/)
+for usage, async calls, and budget and source-span behavior.
+
 ## Install
 
 ```bash

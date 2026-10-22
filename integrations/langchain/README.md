@@ -4,6 +4,9 @@ A small `RunnableLambda` that trims retrieved documents together under one evide
 limit. It uses Trimwise's public `trim_context()` / `atrim_context()` APIs. This is a
 separate package; core Trimwise does not depend on LangChain.
 
+Read the [Trimwise LangChain guide](https://trimwise.readthedocs.io/en/latest/integrations/langchain/)
+for usage, async calls, and budget and source-span behavior.
+
 ## Install
 
 ```bash

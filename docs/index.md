@@ -64,6 +64,19 @@ semantic and hybrid trimming when you provide your own embedding callback. Insta
 extra only when you want Trimwise to create embeddings through FastEmbed. Do not install the CPU
 and GPU FastEmbed variants together.
 
+## Use with a retrieval framework
+
+Install the adapter for your framework to apply one shared evidence limit after
+retrieval. Neither framework is a dependency of core Trimwise.
+
+| Framework | Install | Guide |
+| --- | --- | --- |
+| LangChain | `python -m pip install langchain-trimwise` | [Runnable integration](integrations/langchain.md) |
+| LlamaIndex | `python -m pip install llama-index-postprocessor-trimwise` | [Node postprocessor](integrations/llama-index.md) |
+
+Both guides include a runnable model-free example and a link to a separate CPU-only
+PDF playground for trying your own documents.
+
 ## Your first high-signal excerpt
 
 ```python
