@@ -1,0 +1,106 @@
+name: Release framework integration to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      integration:
+        description: Integration to publish from its matching version tag
+        required: true
+        type: choice
+        options:
+          - langchain
+          - llama-index
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-release-${{ inputs.integration }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      package: ${{ steps.release.outputs.package }}
+    env:
+      CUDA_VISIBLE_DEVICES: "-1"
+      GGML_VK_VISIBLE_DEVICES: "-1"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.13"
+      - name: Validate package and release tag
+        id: release
+        env:
+          INTEGRATION: ${{ inputs.integration }}
+        run: |
+          python - <<'PY'
+          """Require the selected adapter's exact version tag before building."""
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          packages = {
+              "langchain": "langchain-trimwise",
+              "llama-index": "llama-index-postprocessor-trimwise",
+          }
+          integration = os.environ["INTEGRATION"]
+          if integration not in packages:
+              raise SystemExit("Choose langchain or llama-index.")
+          path = Path("integrations") / integration
+          project = tomllib.loads((path / "pyproject.toml").read_text())["project"]
+          version = project["version"]
+          if project["name"] != packages[integration]:
+              raise SystemExit("The package name does not match the selected integration.")
+          if re.fullmatch(r"\d+\.\d+\.\d+", version) is None:
+              raise SystemExit("Only stable X.Y.Z versions are supported by this workflow.")
+          expected_tag = f"{integration}-v{version}"
+          if os.environ["GITHUB_REF_TYPE"] != "tag" or os.environ["GITHUB_REF_NAME"] != expected_tag:
+              raise SystemExit(f"Run this workflow from the {expected_tag} tag ref.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"path={path}\npackage={project['name']}\n")
+          PY
+      - name: Require a commit already merged into main
+        run: git merge-base --is-ancestor HEAD origin/main
+      - run: python -m pip install 'build>=1.5,<2' 'twine>=7,<8'
+      - name: Build only the selected integration
+        env:
+          PACKAGE_PATH: ${{ steps.release.outputs.path }}
+        run: python -m build "$PACKAGE_PATH" --outdir "$GITHUB_WORKSPACE/dist"
+      - run: python -m twine check --strict dist/*
+      - name: Test the built wheel against published dependencies
+        env:
+          PACKAGE_PATH: ${{ steps.release.outputs.path }}
+        run: |
+          python -m pip install 'pytest>=9.1,<10' 'pytest-asyncio>=1.4,<2'
+          python -m pip install dist/*.whl
+          python -m pip check
+          python -m pytest "$PACKAGE_PATH/tests" -c "$PACKAGE_PATH/pyproject.toml"
+          python "$PACKAGE_PATH/examples/minimal.py"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: integration-distributions
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-${{ inputs.integration }}
+      url: https://pypi.org/project/${{ needs.build.outputs.package }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: integration-distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+        with:
+          packages-dir: dist/

@@ -1,0 +1,52 @@
+[
+  {
+    "id": "incident",
+    "question": "What caused the Atlas outage, and when did service recover?",
+    "reference_answer": "The invoice worker retry loop ignored backoff settings and exhausted the database connection pool. Service recovered at 14:32 UTC.",
+    "support": {
+      "page": 1,
+      "quote": "Service recovered at 14:32 UTC.",
+      "start": 797,
+      "end": 828
+    }
+  },
+  {
+    "id": "backups",
+    "question": "How often do backups run and how long are snapshots retained?",
+    "reference_answer": "Backups run every Sunday at 02:00 UTC and snapshots are retained for 14 days.",
+    "support": {
+      "page": 2,
+      "quote": "Backup snapshots are retained for 14 days.",
+      "start": 284,
+      "end": 326
+    }
+  },
+  {
+    "id": "rollout",
+    "question": "What blocks the production rollout, who owns renewal, and when is it due?",
+    "reference_answer": "An expired signing certificate blocks the rollout. Mira owns renewal, due Friday at 16:00 UTC.",
+    "support": {
+      "page": 3,
+      "quote": "Mira owns certificate\nrenewal.",
+      "start": 347,
+      "end": 377
+    }
+  },
+  {
+    "id": "restore",
+    "question": "Does a restore rehearsal overwrite the active service database?",
+    "reference_answer": "No. It uses a separate test environment and must not overwrite the active service database.",
+    "support": {
+      "page": 2,
+      "quote": "The rehearsal uses a separate\ntest environment and must not overwrite the active service database.",
+      "start": 387,
+      "end": 485
+    }
+  },
+  {
+    "id": "unanswerable",
+    "question": "What is Atlas's quarterly revenue target?",
+    "reference_answer": "The supplied document does not specify a quarterly revenue target.",
+    "support": null
+  }
+]
